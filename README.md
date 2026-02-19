@@ -1,8 +1,8 @@
 # Game Collection Manager
 
 Interactive app to manage:
-- your owned collection (`PS1`, `PS2`, `PS4`, `DS WII`)
-- your wishlist with `In transit` and `Received` status
+- Owned collection (`PS1`, `PS2`, `PS4`, `DS WII`)
+- Wishlist with `In transit` and `Received` status
 
 When a wishlist item is marked as `Received`, it is automatically moved to the collection.
 
