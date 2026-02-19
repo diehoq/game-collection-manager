@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Game Collection Manager</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="backdrop" aria-hidden="true"></div>
+    <main class="app-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Collection Tracker</p>
+          <h1>Game Collection Manager</h1>
+          <p class="subtitle">
+            Track your PS1, PS2, PS4 and DS/WII games and manage wishlist items in
+            transit or received.
+          </p>
+        </div>
+        <div class="hero-stats" id="hero-stats"></div>
+      </header>
+
+      <nav class="tabs" aria-label="Views">
+        <button class="tab is-active" data-tab="collection" type="button">Collection</button>
+        <button class="tab" data-tab="wishlist" type="button">Wishlist</button>
+      </nav>
+
+      <section class="panel is-active" id="collection-panel">
+        <div class="section-head">
+          <h2>Current Collection</h2>
+          <div class="filters">
+            <input
+              id="collection-search"
+              type="search"
+              placeholder="Search title, notes, version..."
+              autocomplete="off"
+            />
+          </div>
+        </div>
+        <div id="collection-platform-tabs" class="platform-tabs" role="tablist" aria-label="Collection platforms"></div>
+
+        <form id="collection-form" class="card form-grid" autocomplete="off">
+          <h3>Add To Collection</h3>
+          <label>
+            Platform
+            <select name="platform" required></select>
+          </label>
+          <label>
+            Title
+            <input name="title" required />
+          </label>
+          <label>
+            Version
+            <input name="version" />
+          </label>
+          <label>
+            CD
+            <input name="cdCondition" />
+          </label>
+          <label>
+            Manual
+            <input name="manualCondition" />
+          </label>
+          <label>
+            Price
+            <input name="price" />
+          </label>
+          <label>
+            Extra
+            <input name="extra" />
+          </label>
+          <label class="full-width">
+            Note
+            <input name="note" />
+          </label>
+          <button type="submit">Add Game</button>
+        </form>
+
+        <div id="collection-groups" class="stack"></div>
+      </section>
+
+      <section class="panel" id="wishlist-panel">
+        <div class="section-head">
+          <h2>Wishlist</h2>
+          <div class="filters">
+            <input
+              id="wishlist-search"
+              type="search"
+              placeholder="Search wishlist..."
+              autocomplete="off"
+            />
+            <select id="wishlist-platform-filter">
+              <option value="">All platforms</option>
+            </select>
+          </div>
+        </div>
+
+        <form id="wishlist-form" class="card form-grid" autocomplete="off">
+          <h3>Add To Wishlist</h3>
+          <label>
+            Platform
+            <select name="platform" required></select>
+          </label>
+          <label>
+            Title
+            <input name="title" required />
+          </label>
+          <label class="full-width">
+            Note
+            <input name="note" />
+          </label>
+          <label class="inline-check">
+            <input name="inTransit" type="checkbox" />
+            Mark as in transit
+          </label>
+          <button type="submit">Add Wish</button>
+        </form>
+
+        <div class="card table-wrap">
+          <table id="wishlist-table">
+            <thead>
+              <tr>
+                <th>Platform</th>
+                <th>Title</th>
+                <th>Note</th>
+                <th>In transit</th>
+                <th>Received</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <p class="status" id="status"></p>
+    </main>
+
+    <script src="app.js" type="module"></script>
+  </body>
+</html>
