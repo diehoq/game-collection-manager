@@ -16,6 +16,9 @@ const state = {
 const elements = {
   heroStats: document.getElementById("hero-stats"),
   status: document.getElementById("status"),
+  exportStateButton: document.getElementById("export-state-btn"),
+  importStateButton: document.getElementById("import-state-btn"),
+  importStateFile: document.getElementById("import-state-file"),
   tabs: [...document.querySelectorAll(".tab")],
   panels: {
     collection: document.getElementById("collection-panel"),
@@ -129,6 +132,138 @@ function saveState() {
       wishlist: state.wishlist,
     })
   );
+}
+
+function toBool(value) {
+  if (typeof value === "boolean") return value;
+  const text = normalize(value);
+  return text === "true" || text === "1" || text === "yes" || text === "x";
+}
+
+function normalizeCollectionRow(row) {
+  return {
+    platform: String(row?.platform ?? "").trim(),
+    title: String(row?.title ?? "").trim(),
+    version: String(row?.version ?? "").trim(),
+    cdCondition: String(row?.cdCondition ?? row?.cd_condition ?? "").trim(),
+    manualCondition: String(row?.manualCondition ?? row?.manual_condition ?? "").trim(),
+    price: String(row?.price ?? "").trim(),
+    extra: String(row?.extra ?? "").trim(),
+    note: String(row?.note ?? "").trim(),
+  };
+}
+
+function normalizeWishlistRow(row) {
+  return {
+    platform: String(row?.platform ?? "").trim(),
+    title: String(row?.title ?? "").trim(),
+    note: String(row?.note ?? "").trim(),
+    inTransit: toBool(row?.inTransit ?? row?.in_transit),
+    received: toBool(row?.received),
+  };
+}
+
+function buildCollectionKey(platform, title) {
+  return `${normalize(platform)}::${normalize(title)}`;
+}
+
+function normalizeStatePayload(payload) {
+  if (!payload || typeof payload !== "object") {
+    throw new Error("Invalid state format.");
+  }
+
+  const rawCollection = Array.isArray(payload.collection) ? payload.collection : [];
+  const rawWishlist = Array.isArray(payload.wishlist) ? payload.wishlist : [];
+  const collection = [];
+  const wishlist = [];
+  const seenCollection = new Set();
+  const seenWishlist = new Set();
+
+  for (const row of rawCollection) {
+    const normalizedRow = normalizeCollectionRow(row);
+    if (!normalizedRow.platform || !normalizedRow.title) continue;
+    const key = buildCollectionKey(normalizedRow.platform, normalizedRow.title);
+    if (seenCollection.has(key)) continue;
+    seenCollection.add(key);
+    collection.push(normalizedRow);
+  }
+
+  for (const row of rawWishlist) {
+    const normalizedRow = normalizeWishlistRow(row);
+    if (!normalizedRow.platform || !normalizedRow.title) continue;
+    const key = buildCollectionKey(normalizedRow.platform, normalizedRow.title);
+    if (normalizedRow.received) {
+      if (!seenCollection.has(key)) {
+        seenCollection.add(key);
+        collection.push({
+          platform: normalizedRow.platform,
+          title: normalizedRow.title,
+          version: "",
+          cdCondition: "",
+          manualCondition: "",
+          price: "",
+          extra: "",
+          note: normalizedRow.note || "",
+        });
+      }
+      continue;
+    }
+    if (seenWishlist.has(key)) continue;
+    seenWishlist.add(key);
+    wishlist.push({
+      platform: normalizedRow.platform,
+      title: normalizedRow.title,
+      note: normalizedRow.note,
+      inTransit: normalizedRow.inTransit,
+      received: false,
+    });
+  }
+
+  collection.sort((a, b) => {
+    if (a.platform !== b.platform) return a.platform.localeCompare(b.platform);
+    return a.title.localeCompare(b.title);
+  });
+  wishlist.sort((a, b) => {
+    if (a.platform !== b.platform) return a.platform.localeCompare(b.platform);
+    return a.title.localeCompare(b.title);
+  });
+
+  return {
+    collection: collection.map((item, index) => ({ id: `c${index + 1}`, ...item })),
+    wishlist: wishlist.map((item, index) => ({ id: `w${index + 1}`, ...item })),
+  };
+}
+
+function exportStateSnapshot() {
+  const payload = {
+    schemaVersion: 1,
+    exportedAt: new Date().toISOString(),
+    collection: state.collection,
+    wishlist: state.wishlist,
+  };
+  const stamp = new Date().toISOString().replaceAll(":", "-");
+  const filename = `game-collection-state-${stamp}.json`;
+  const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  flashStatus(`Exported snapshot: ${filename}`);
+}
+
+async function importStateSnapshot(file) {
+  const text = await file.text();
+  const parsed = JSON.parse(text);
+  const normalizedState = normalizeStatePayload(parsed);
+  state.collection = normalizedState.collection;
+  state.wishlist = normalizedState.wishlist;
+  saveState();
+  renderAll();
+  flashStatus(`Imported ${state.collection.length} collection and ${state.wishlist.length} wishlist games.`);
 }
 
 function flashStatus(message, isError = false) {
@@ -440,6 +575,21 @@ function bindEvents() {
   elements.collectionSearch.addEventListener("input", renderCollection);
   elements.wishlistSearch.addEventListener("input", renderWishlist);
   elements.wishlistPlatformFilter.addEventListener("change", renderWishlist);
+  elements.exportStateButton.addEventListener("click", exportStateSnapshot);
+  elements.importStateButton.addEventListener("click", () => {
+    elements.importStateFile.value = "";
+    elements.importStateFile.click();
+  });
+  elements.importStateFile.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      await importStateSnapshot(file);
+    } catch (error) {
+      console.error(error);
+      flashStatus("Invalid snapshot file.", true);
+    }
+  });
   elements.collectionPlatformTabs.addEventListener("click", (event) => {
     const button = event.target.closest("[data-platform-tab]");
     if (!button) return;
@@ -548,16 +698,19 @@ async function loadInitialState() {
     const cached = localStorage.getItem(STORAGE_KEY);
     if (cached) {
       const parsed = JSON.parse(cached);
-      state.collection = parsed.collection || [];
-      state.wishlist = parsed.wishlist || [];
+      const normalizedState = normalizeStatePayload(parsed);
+      state.collection = normalizedState.collection;
+      state.wishlist = normalizedState.wishlist;
+      saveState();
       return;
     }
 
     const response = await fetch("data/seed.json");
     if (!response.ok) throw new Error(`Failed to load seed (${response.status})`);
     const seed = await response.json();
-    state.collection = seed.collection || [];
-    state.wishlist = seed.wishlist || [];
+    const normalizedState = normalizeStatePayload(seed);
+    state.collection = normalizedState.collection;
+    state.wishlist = normalizedState.wishlist;
     saveState();
   } catch (error) {
     console.error(error);

@@ -21,6 +21,18 @@
         <div class="hero-stats" id="hero-stats"></div>
       </header>
 
+      <section class="card sync-card" aria-label="Sync controls">
+        <div>
+          <h2 class="sync-title">Two-Way Sync</h2>
+          <p class="sync-subtitle">Export app changes to a JSON snapshot or import a snapshot back into the app.</p>
+        </div>
+        <div class="sync-actions">
+          <button id="export-state-btn" type="button">Export App State</button>
+          <button id="import-state-btn" type="button">Import App State</button>
+          <input id="import-state-file" type="file" accept="application/json" hidden />
+        </div>
+      </section>
+
       <nav class="tabs" aria-label="Views">
         <button class="tab is-active" data-tab="collection" type="button">Collection</button>
         <button class="tab" data-tab="wishlist" type="button">Wishlist</button>

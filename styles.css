@@ -87,6 +87,33 @@ h1 {
   gap: 0.7rem;
 }
 
+.sync-card {
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.sync-title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.sync-subtitle {
+  margin: 0.2rem 0 0;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+}
+
+.sync-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .stat-card {
   background: var(--card);
   border: 1px solid var(--line-bright);
@@ -463,6 +490,15 @@ button:focus-visible {
 @media (max-width: 900px) {
   .hero {
     grid-template-columns: 1fr;
+  }
+
+  .sync-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .sync-actions {
+    justify-content: flex-start;
   }
 
   .form-grid {

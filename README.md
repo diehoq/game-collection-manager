@@ -52,6 +52,36 @@ python3 -m http.server 8000
 Then open:
 - `http://localhost:8000`
 
+## Two-way sync
+
+### App -> Excel
+
+1. In the app, click `Export App State` (downloads a JSON snapshot).
+2. Sync that file back into Excel:
+
+```bash
+source .venv/bin/activate
+python scripts/sync_state_to_excel.py --state /path/to/game-collection-state-YYYY-MM-DDTHH-MM-SS.json
+```
+
+This updates:
+- `Ps2 games.xlsx`
+- `wishlist_videogiochi.xlsx`
+- `data/seed.json`
+
+It also creates timestamped Excel backups before overwrite.
+
+### Excel -> App
+
+```bash
+source .venv/bin/activate
+python scripts/import_excel_data.py
+```
+
+Then in the app:
+- either clear localStorage key `gameCollectionManager.v1` and refresh
+- or import a previously exported JSON snapshot using `Import App State`
+
 ## Notes
 
 - App data is persisted in browser `localStorage`.
