@@ -114,6 +114,13 @@ h1 {
   justify-content: flex-end;
 }
 
+.sync-download-link {
+  color: var(--accent);
+  font-size: 0.86rem;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .stat-card {
   background: var(--card);
   border: 1px solid var(--line-bright);

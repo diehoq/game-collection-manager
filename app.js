@@ -19,6 +19,7 @@ const elements = {
   exportStateButton: document.getElementById("export-state-btn"),
   importStateButton: document.getElementById("import-state-btn"),
   importStateFile: document.getElementById("import-state-file"),
+  exportStateLink: document.getElementById("export-state-link"),
   tabs: [...document.querySelectorAll(".tab")],
   panels: {
     collection: document.getElementById("collection-panel"),
@@ -35,6 +36,7 @@ const elements = {
 };
 
 let statusTimer = null;
+let currentExportBlobUrl = null;
 
 function normalize(input) {
   return (input || "").toString().trim().toLowerCase();
@@ -234,25 +236,52 @@ function normalizeStatePayload(payload) {
   };
 }
 
-function exportStateSnapshot() {
-  const payload = {
-    schemaVersion: 1,
-    exportedAt: new Date().toISOString(),
-    collection: state.collection,
-    wishlist: state.wishlist,
-  };
-  const stamp = new Date().toISOString().replaceAll(":", "-");
-  const filename = `game-collection-state-${stamp}.json`;
+function triggerJsonDownload(filename, payload) {
+  if (currentExportBlobUrl) {
+    URL.revokeObjectURL(currentExportBlobUrl);
+    currentExportBlobUrl = null;
+  }
   const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: "application/json" });
   const url = URL.createObjectURL(blob);
+  currentExportBlobUrl = url;
+
+  if (elements.exportStateLink) {
+    elements.exportStateLink.href = url;
+    elements.exportStateLink.download = filename;
+    elements.exportStateLink.hidden = false;
+    elements.exportStateLink.textContent = `Download manually: ${filename}`;
+  }
+
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
+  link.rel = "noopener";
+  link.style.display = "none";
   document.body.append(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
-  flashStatus(`Exported snapshot: ${filename}`);
+}
+
+function exportStateSnapshot() {
+  try {
+    const normalizedState = normalizeStatePayload({
+      collection: state.collection,
+      wishlist: state.wishlist,
+    });
+    const payload = {
+      schemaVersion: 1,
+      exportedAt: new Date().toISOString(),
+      collection: normalizedState.collection,
+      wishlist: normalizedState.wishlist,
+    };
+    const stamp = new Date().toISOString().replaceAll(":", "-");
+    const filename = `game-collection-state-${stamp}.json`;
+    triggerJsonDownload(filename, payload);
+    flashStatus(`Export created. If download did not start, use the manual link.`);
+  } catch (error) {
+    console.error(error);
+    flashStatus("Export failed. Check browser download permissions.", true);
+  }
 }
 
 async function importStateSnapshot(file) {
