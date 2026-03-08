@@ -234,6 +234,13 @@ h3 {
   flex-wrap: wrap;
 }
 
+#collection-search,
+#wishlist-search {
+  width: min(620px, 90vw);
+  min-height: 44px;
+  font-size: 1rem;
+}
+
 input,
 select,
 button {
@@ -443,6 +450,14 @@ tbody tr:hover td {
 .row-actions {
   display: flex;
   gap: 0.4rem;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.row-actions button {
+  padding: 0.42rem 0.72rem;
+  font-size: 0.8rem;
+  line-height: 1.1;
 }
 
 .secondary {
