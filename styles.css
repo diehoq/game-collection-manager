@@ -445,6 +445,17 @@ tbody tr:hover td {
   gap: 0.4rem;
 }
 
+.secondary {
+  background: rgba(20, 34, 58, 0.95);
+  color: #d4e6ff;
+  border-color: rgba(126, 165, 216, 0.55);
+}
+
+.secondary:hover {
+  background: rgba(28, 47, 79, 1);
+  box-shadow: 0 0 16px rgba(126, 165, 216, 0.3);
+}
+
 .danger {
   background: rgba(42, 18, 29, 0.9);
   color: #ffb2c3;

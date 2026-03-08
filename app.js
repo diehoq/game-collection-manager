@@ -11,6 +11,7 @@ const state = {
   collection: [],
   wishlist: [],
   activeCollectionPlatform: "ALL",
+  editingCollectionId: "",
 };
 
 const elements = {
@@ -32,6 +33,9 @@ const elements = {
   collectionGroups: document.getElementById("collection-groups"),
   wishlistTableBody: document.querySelector("#wishlist-table tbody"),
   collectionForm: document.getElementById("collection-form"),
+  collectionFormTitle: document.getElementById("collection-form-title"),
+  collectionSubmitButton: document.getElementById("collection-submit-btn"),
+  collectionCancelEditButton: document.getElementById("collection-cancel-edit-btn"),
   wishlistForm: document.getElementById("wishlist-form"),
 };
 
@@ -290,6 +294,8 @@ async function importStateSnapshot(file) {
   const normalizedState = normalizeStatePayload(parsed);
   state.collection = normalizedState.collection;
   state.wishlist = normalizedState.wishlist;
+  state.editingCollectionId = "";
+  elements.collectionForm.elements.editId.value = "";
   saveState();
   renderAll();
   flashStatus(`Imported ${state.collection.length} collection and ${state.wishlist.length} wishlist games.`);
@@ -468,6 +474,7 @@ function renderCollection() {
         <td>${escapeHtml(game.note || "")}</td>
         <td>
           <div class="row-actions">
+            <button class="secondary" data-edit-collection="${game.id}" type="button">Edit</button>
             <button class="danger" data-remove-collection="${game.id}" type="button">Remove</button>
           </div>
         </td>
@@ -534,12 +541,47 @@ function renderAll() {
   renderHeroStats();
   renderCollection();
   renderWishlist();
+  setCollectionFormMode();
+}
+
+function setCollectionFormMode() {
+  const editing = Boolean(state.editingCollectionId);
+  elements.collectionFormTitle.textContent = editing ? "Edit Collection Game" : "Add To Collection";
+  elements.collectionSubmitButton.textContent = editing ? "Save Changes" : "Add Game";
+  elements.collectionCancelEditButton.hidden = !editing;
+}
+
+function resetCollectionForm() {
+  elements.collectionForm.reset();
+  state.editingCollectionId = "";
+  elements.collectionForm.elements.editId.value = "";
+  setCollectionFormMode();
+}
+
+function startCollectionEdit(id) {
+  const game = state.collection.find((item) => item.id === id);
+  if (!game) return;
+  state.editingCollectionId = game.id;
+  elements.collectionForm.elements.editId.value = game.id;
+  elements.collectionForm.elements.platform.value = game.platform;
+  elements.collectionForm.elements.title.value = game.title;
+  elements.collectionForm.elements.version.value = game.version || "";
+  elements.collectionForm.elements.cdCondition.value = game.cdCondition || "";
+  elements.collectionForm.elements.manualCondition.value = game.manualCondition || "";
+  elements.collectionForm.elements.price.value = game.price || "";
+  elements.collectionForm.elements.extra.value = game.extra || "";
+  elements.collectionForm.elements.note.value = game.note || "";
+  setCollectionFormMode();
+  elements.collectionForm.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 function removeCollectionItem(id) {
   const before = state.collection.length;
   state.collection = state.collection.filter((item) => item.id !== id);
   if (state.collection.length !== before) {
+    if (state.editingCollectionId === id) {
+      resetCollectionForm();
+    }
     saveState();
     renderAll();
     flashStatus("Game removed from collection.");
@@ -627,9 +669,14 @@ function bindEvents() {
   });
 
   elements.collectionGroups.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-remove-collection]");
-    if (!button) return;
-    removeCollectionItem(button.dataset.removeCollection);
+    const editButton = event.target.closest("[data-edit-collection]");
+    if (editButton) {
+      startCollectionEdit(editButton.dataset.editCollection);
+      return;
+    }
+    const removeButton = event.target.closest("[data-remove-collection]");
+    if (!removeButton) return;
+    removeCollectionItem(removeButton.dataset.removeCollection);
   });
 
   elements.wishlistTableBody.addEventListener("click", (event) => {
@@ -655,8 +702,9 @@ function bindEvents() {
   elements.collectionForm.addEventListener("submit", (event) => {
     event.preventDefault();
     const form = event.currentTarget;
+    const editId = state.editingCollectionId || form.elements.editId.value.trim();
     const payload = {
-      id: newId("c"),
+      id: editId || newId("c"),
       platform: form.elements.platform.value.trim(),
       title: form.elements.title.value.trim(),
       version: form.elements.version.value.trim(),
@@ -671,15 +719,48 @@ function bindEvents() {
       flashStatus("Platform and title are required.", true);
       return;
     }
-    if (isDuplicateCollection(payload.platform, payload.title)) {
+    const duplicate = state.collection.some(
+      (item) =>
+        normalize(item.platform) === normalize(payload.platform) &&
+        normalize(item.title) === normalize(payload.title) &&
+        item.id !== editId
+    );
+    if (duplicate) {
       flashStatus("This game is already in your collection.", true);
       return;
     }
+
+    if (editId) {
+      const target = state.collection.find((item) => item.id === editId);
+      if (!target) {
+        flashStatus("Could not find the selected game to edit.", true);
+        return;
+      }
+      target.platform = payload.platform;
+      target.title = payload.title;
+      target.version = payload.version;
+      target.cdCondition = payload.cdCondition;
+      target.manualCondition = payload.manualCondition;
+      target.price = payload.price;
+      target.extra = payload.extra;
+      target.note = payload.note;
+      saveState();
+      renderAll();
+      resetCollectionForm();
+      flashStatus(`${payload.title} updated.`);
+      return;
+    }
+
     state.collection.push(payload);
     saveState();
-    form.reset();
     renderAll();
+    resetCollectionForm();
     flashStatus(`${payload.title} added to collection.`);
+  });
+
+  elements.collectionCancelEditButton.addEventListener("click", () => {
+    resetCollectionForm();
+    flashStatus("Edit cancelled.");
   });
 
   elements.wishlistForm.addEventListener("submit", (event) => {
