@@ -445,7 +445,18 @@ function renderCollection() {
     wrap.className = "table-wrap";
 
     const table = document.createElement("table");
+    table.className = "collection-table";
     table.innerHTML = `
+      <colgroup>
+        <col style="width: 24%" />
+        <col style="width: 10%" />
+        <col style="width: 7%" />
+        <col style="width: 7%" />
+        <col style="width: 8%" />
+        <col style="width: 11%" />
+        <col style="width: 18%" />
+        <col style="width: 15%" />
+      </colgroup>
       <thead>
         <tr>
           <th>Title</th>

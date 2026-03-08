@@ -423,6 +423,23 @@ table {
   min-width: 740px;
 }
 
+.collection-table {
+  table-layout: fixed;
+  min-width: 940px;
+}
+
+.collection-table th,
+.collection-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.collection-table th:last-child,
+.collection-table td:last-child {
+  overflow: visible;
+  text-overflow: clip;
+}
+
 th,
 td {
   padding: 0.52rem 0.5rem;
