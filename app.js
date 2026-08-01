@@ -55,6 +55,8 @@ const elements = {
   deleteDialog: document.getElementById("delete-dialog"),
   deleteDialogTitle: document.getElementById("delete-dialog-title"),
   deleteDialogMessage: document.getElementById("delete-dialog-message"),
+  deleteMoveOption: document.getElementById("delete-move-option"),
+  deleteMoveCheckbox: document.getElementById("delete-move-checkbox"),
   deleteCancelButton: document.getElementById("delete-cancel-btn"),
   deleteConfirmButton: document.getElementById("delete-confirm-btn"),
 };
@@ -752,17 +754,44 @@ function startCollectionEdit(id) {
   elements.collectionForm.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
-function removeCollectionItem(id) {
-  const before = state.collection.length;
+function removeCollectionItem(id, moveToWishlist = false) {
+  const game = state.collection.find((item) => item.id === id);
+  if (!game) return;
+
   state.collection = state.collection.filter((item) => item.id !== id);
-  if (state.collection.length !== before) {
-    if (state.editingCollectionId === id) {
-      resetCollectionForm();
+
+  if (moveToWishlist) {
+    const existingWish = state.wishlist.find(
+      (item) =>
+        normalize(item.platform) === normalize(game.platform) &&
+        normalize(item.title) === normalize(game.title)
+    );
+    if (existingWish) {
+      existingWish.replacement = false;
+    } else {
+      state.wishlist.push({
+        id: newId("w"),
+        platform: game.platform,
+        title: game.title,
+        note: game.note || "",
+        inTransit: false,
+        received: false,
+        priority: "Medium",
+        targetPrice: "",
+        orderedDate: "",
+        receivedDate: "",
+        listingUrl: "",
+        replacement: false,
+      });
     }
-    saveState();
-    renderAll();
-    flashStatus("Game removed from collection.");
   }
+
+  if (state.editingCollectionId === id) {
+    resetCollectionForm();
+  }
+  saveState();
+  renderAll();
+  flashStatus(moveToWishlist ? "Game moved back to the wishlist." : "Game removed from collection.");
 }
 
 function removeWishlistItem(id) {
@@ -787,6 +816,8 @@ function openDeleteDialog(type, id) {
   elements.deleteDialogTitle.textContent = type === "collection" ? "Remove game?" : "Delete wishlist game?";
   elements.deleteDialogMessage.textContent = `Are you sure you want to ${verb} “${item.title}” from your ${location}? This action cannot be undone.`;
   elements.deleteConfirmButton.textContent = type === "collection" ? "Remove" : "Delete";
+  elements.deleteMoveCheckbox.checked = false;
+  elements.deleteMoveOption.hidden = type !== "collection";
   elements.deleteDialog.showModal();
 }
 
@@ -994,6 +1025,7 @@ function bindEvents() {
 
   elements.deleteCancelButton.addEventListener("click", () => {
     pendingDeletion = null;
+    elements.deleteMoveCheckbox.checked = false;
     elements.deleteDialog.close();
   });
   elements.deleteDialog.addEventListener("cancel", () => {
@@ -1001,10 +1033,11 @@ function bindEvents() {
   });
   elements.deleteConfirmButton.addEventListener("click", () => {
     const deletion = pendingDeletion;
+    const moveToWishlist = deletion?.type === "collection" && elements.deleteMoveCheckbox.checked;
     pendingDeletion = null;
     elements.deleteDialog.close();
     if (!deletion) return;
-    if (deletion.type === "collection") removeCollectionItem(deletion.id);
+    if (deletion.type === "collection") removeCollectionItem(deletion.id, moveToWishlist);
     else removeWishlistItem(deletion.id);
   });
 

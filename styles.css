@@ -637,6 +637,14 @@ button:not(.tab):not(.platform-tab).danger {
   text-shadow: 0 0 18px rgba(255, 111, 142, 0.35);
 }
 
+.delete-move-option {
+  width: fit-content;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(11, 20, 38, 0.72);
+}
+
 .dialog-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

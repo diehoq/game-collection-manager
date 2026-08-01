@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Game Collection Manager</title>
-    <link rel="stylesheet" href="styles.css?v=20260801-2" />
+    <link rel="stylesheet" href="styles.css?v=20260801-4" />
   </head>
   <body>
     <div class="backdrop" aria-hidden="true"></div>
@@ -255,6 +255,10 @@
           <h2 id="delete-dialog-title">Delete game?</h2>
           <p class="dialog-subtitle" id="delete-dialog-message"></p>
         </div>
+        <label id="delete-move-option" class="inline-check delete-move-option" hidden>
+          <input id="delete-move-checkbox" type="checkbox" />
+          Move this game back to the wishlist
+        </label>
         <div class="dialog-actions">
           <button id="delete-cancel-btn" class="secondary" type="button">Cancel</button>
           <button id="delete-confirm-btn" class="danger" type="button">Delete</button>
@@ -262,6 +266,6 @@
       </div>
     </dialog>
 
-    <script src="app.js?v=20260801-3" type="module"></script>
+    <script src="app.js?v=20260801-4" type="module"></script>
   </body>
 </html>
