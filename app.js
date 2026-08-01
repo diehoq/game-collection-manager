@@ -52,11 +52,17 @@ const elements = {
   receiveForm: document.getElementById("receive-form"),
   receiveGameTitle: document.getElementById("receive-game-title"),
   receiveCancelButton: document.getElementById("receive-cancel-btn"),
+  deleteDialog: document.getElementById("delete-dialog"),
+  deleteDialogTitle: document.getElementById("delete-dialog-title"),
+  deleteDialogMessage: document.getElementById("delete-dialog-message"),
+  deleteCancelButton: document.getElementById("delete-cancel-btn"),
+  deleteConfirmButton: document.getElementById("delete-confirm-btn"),
 };
 
 let statusTimer = null;
 let currentExportBlobUrl = null;
 let undoAction = null;
+let pendingDeletion = null;
 
 function normalize(input) {
   return (input || "").toString().trim().toLowerCase();
@@ -771,6 +777,21 @@ function removeWishlistItem(id) {
   }
 }
 
+function openDeleteDialog(type, id) {
+  const item = type === "collection"
+    ? state.collection.find((game) => game.id === id)
+    : state.wishlist.find((wish) => wish.id === id);
+  if (!item) return;
+
+  pendingDeletion = { type, id };
+  const location = type === "collection" ? "collection" : "wishlist";
+  const verb = type === "collection" ? "remove" : "delete";
+  elements.deleteDialogTitle.textContent = type === "collection" ? "Remove game?" : "Delete wishlist game?";
+  elements.deleteDialogMessage.textContent = `Are you sure you want to ${verb} “${item.title}” from your ${location}? You can still undo this action for eight seconds.`;
+  elements.deleteConfirmButton.textContent = type === "collection" ? "Remove" : "Delete";
+  elements.deleteDialog.showModal();
+}
+
 function setWishlistTransit(id, value) {
   const target = state.wishlist.find((item) => item.id === id);
   if (!target) return;
@@ -953,7 +974,7 @@ function bindEvents() {
     }
     const removeButton = event.target.closest("[data-remove-collection]");
     if (!removeButton) return;
-    removeCollectionItem(removeButton.dataset.removeCollection);
+    openDeleteDialog("collection", removeButton.dataset.removeCollection);
   });
 
   elements.wishlistTableBody.addEventListener("click", (event) => {
@@ -969,8 +990,24 @@ function bindEvents() {
     }
     const deleteButton = event.target.closest("[data-remove-wishlist]");
     if (deleteButton) {
-      removeWishlistItem(deleteButton.dataset.removeWishlist);
+      openDeleteDialog("wishlist", deleteButton.dataset.removeWishlist);
     }
+  });
+
+  elements.deleteCancelButton.addEventListener("click", () => {
+    pendingDeletion = null;
+    elements.deleteDialog.close();
+  });
+  elements.deleteDialog.addEventListener("cancel", () => {
+    pendingDeletion = null;
+  });
+  elements.deleteConfirmButton.addEventListener("click", () => {
+    const deletion = pendingDeletion;
+    pendingDeletion = null;
+    elements.deleteDialog.close();
+    if (!deletion) return;
+    if (deletion.type === "collection") removeCollectionItem(deletion.id);
+    else removeWishlistItem(deletion.id);
   });
 
   elements.wishlistTableBody.addEventListener("change", (event) => {

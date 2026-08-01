@@ -632,6 +632,11 @@ button:not(.tab):not(.platform-tab).danger {
   color: var(--ink-soft);
 }
 
+.danger-eyebrow {
+  color: var(--danger);
+  text-shadow: 0 0 18px rgba(255, 111, 142, 0.35);
+}
+
 .dialog-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
