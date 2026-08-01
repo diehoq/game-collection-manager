@@ -803,15 +803,14 @@ function renderCollection() {
     table.className = "collection-table";
     table.innerHTML = `
       <colgroup>
-        <col style="width: 21%" />
+        <col style="width: 23%" />
         <col style="width: 9%" />
         <col style="width: 6%" />
         <col style="width: 6%" />
-        <col style="width: 7%" />
-        <col style="width: 10%" />
-        <col style="width: 16%" />
         <col style="width: 11%" />
-        <col style="width: 14%" />
+        <col style="width: 18%" />
+        <col style="width: 12%" />
+        <col style="width: 15%" />
       </colgroup>
       <thead>
         <tr>
@@ -819,7 +818,6 @@ function renderCollection() {
           <th>Version</th>
           <th>CD</th>
           <th>Manual</th>
-          <th>Price</th>
           <th>Extra</th>
           <th>Note</th>
           <th>Market</th>
@@ -839,7 +837,6 @@ function renderCollection() {
         <td data-label="Version" title="${escapeHtml(game.version || "")}">${escapeHtml(game.version || "")}</td>
         <td data-label="Disc" class="mono">${escapeHtml(game.cdCondition || "")}</td>
         <td data-label="Manual" class="mono">${escapeHtml(game.manualCondition || "")}</td>
-        <td data-label="Price">${escapeHtml(game.price || "")}</td>
         <td data-label="Extra" title="${escapeHtml(game.extra || "")}">${escapeHtml(game.extra || "")}</td>
         <td data-label="Note" title="${escapeHtml(game.note || "")}">${escapeHtml(game.note || "")}</td>
         <td data-label="Market">
