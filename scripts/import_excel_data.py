@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
@@ -29,6 +29,8 @@ class CollectionRecord:
     price: str
     extra: str
     note: str
+    acquired_date: str = ""
+    source: str = ""
 
 
 @dataclass(frozen=True)
@@ -39,6 +41,12 @@ class WishlistRecord:
     note: str
     in_transit: bool
     received: bool
+    priority: str = "Medium"
+    target_price: str = ""
+    ordered_date: str = ""
+    received_date: str = ""
+    listing_url: str = ""
+    replacement: bool = False
 
 
 def normalize_text(value: object) -> str:
@@ -109,6 +117,10 @@ def parse_collection_sheet(path: Path) -> List[CollectionRecord]:
         price_idx = first_header_index(header_map, ["price", "prezzo"])
         extra_idx = first_header_index(header_map, ["extra"])
         note_idx = first_header_index(header_map, ["note", "notes", "note:"])
+        acquired_date_idx = first_header_index(
+            header_map, ["acquired date", "purchase date", "data acquisto"]
+        )
+        source_idx = first_header_index(header_map, ["source", "seller", "store", "venditore"])
 
         default_platform = normalize_text(sheet.title)
         for row in sheet.iter_rows(min_row=2, values_only=True):
@@ -132,6 +144,8 @@ def parse_collection_sheet(path: Path) -> List[CollectionRecord]:
                 price=cell_text(row, price_idx),
                 extra=cell_text(row, extra_idx),
                 note=cell_text(row, note_idx),
+                acquired_date=cell_text(row, acquired_date_idx),
+                source=cell_text(row, source_idx),
             )
             rows.append(record)
             next_id += 1
@@ -156,6 +170,22 @@ def parse_wishlist_sheet(path: Path) -> List[WishlistRecord]:
         in_transit_idx = first_header_index(
             header_map, ["in transito", "in transit", "in-transit", "transit"]
         )
+        priority_idx = first_header_index(header_map, ["priority", "priorita", "priorità"])
+        target_price_idx = first_header_index(
+            header_map, ["target price", "desired price", "prezzo obiettivo"]
+        )
+        ordered_date_idx = first_header_index(
+            header_map, ["ordered date", "order date", "data ordine"]
+        )
+        received_date_idx = first_header_index(
+            header_map, ["received date", "data ricezione"]
+        )
+        listing_url_idx = first_header_index(
+            header_map, ["listing url", "url", "link"]
+        )
+        replacement_idx = first_header_index(
+            header_map, ["replacement", "upgrade copy", "replacement copy"]
+        )
 
         default_platform = normalize_text(sheet.title)
         for row in sheet.iter_rows(min_row=2, values_only=True):
@@ -174,6 +204,12 @@ def parse_wishlist_sheet(path: Path) -> List[WishlistRecord]:
                     note=note,
                     in_transit=in_transit,
                     received=received,
+                    priority=cell_text(row, priority_idx) or "Medium",
+                    target_price=cell_text(row, target_price_idx),
+                    ordered_date=cell_text(row, ordered_date_idx),
+                    received_date=cell_text(row, received_date_idx),
+                    listing_url=cell_text(row, listing_url_idx),
+                    replacement=normalize_bool_flag(cell_text(row, replacement_idx)),
                 )
             )
             next_id += 1
@@ -206,12 +242,23 @@ def transfer_received_items(
                     price="",
                     extra="",
                     note=note,
+                    acquired_date=wish.received_date,
+                    source="",
                 )
                 migrated_collection.append(migrated)
                 collection_by_key[key] = migrated
                 next_collection_id += 1
             continue
         migrated_wishlist.append(wish)
+
+    migrated_wishlist = [
+        replace(
+            wish,
+            replacement=wish.replacement
+            or build_collection_key(wish.platform, wish.title) in collection_by_key,
+        )
+        for wish in migrated_wishlist
+    ]
 
     return migrated_collection, migrated_wishlist
 
@@ -236,6 +283,8 @@ def to_json_payload(
             "price": row.price,
             "extra": row.extra,
             "note": row.note,
+            "acquiredDate": row.acquired_date,
+            "source": row.source,
         }
         for row in sorted_records(collection_records)
     ]
@@ -247,6 +296,12 @@ def to_json_payload(
             "note": row.note,
             "inTransit": row.in_transit,
             "received": row.received,
+            "priority": row.priority,
+            "targetPrice": row.target_price,
+            "orderedDate": row.ordered_date,
+            "receivedDate": row.received_date,
+            "listingUrl": row.listing_url,
+            "replacement": row.replacement,
         }
         for row in sorted_records(wishlist_records)
     ]

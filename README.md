@@ -2,9 +2,9 @@
 
 Interactive app to manage:
 - Owned collection (`PS1`, `PS2`, `PS4`, `DS WII`)
-- Wishlist with `In transit` and `Received` status
+- Wishlist with priority, target price, order tracking, and replacement-copy support
 
-When a wishlist item is marked as `Received`, it is automatically moved to the collection.
+When a wishlist item is received, the app collects purchase details and moves it to the collection. Destructive actions can be undone for eight seconds.
 
 ## Setup
 
@@ -79,12 +79,29 @@ python scripts/import_excel_data.py
 ```
 
 Then in the app:
-- either clear localStorage key `gameCollectionManager.v1` and refresh
+- either clear localStorage key `gameCollectionManager.v2` and refresh
 - or import a previously exported JSON snapshot using `Import App State`
+
+Imports are validated and previewed before they replace browser data. The previous state is retained in `gameCollectionManager.backup.v2` for recovery.
+
+## Data fields
+
+- Collection: platform, title, version, disc/manual condition, price, extra, note, acquired date, and source
+- Wishlist: platform, title, note, priority, target price, in-transit/received status, ordered/received dates, listing URL, and replacement-copy flag
+
+All fields round-trip between JSON and Excel.
+
+## Tests
+
+```bash
+source .venv/bin/activate
+python -m unittest discover -s tests -v
+node --check app.js
+```
 
 ## Notes
 
-- App data is persisted in browser `localStorage`.
+- App data is persisted in browser `localStorage` and automatically migrates from the legacy `gameCollectionManager.v1` key.
 - If you update Excel files and want fresh seed data, re-run:
   - `python scripts/import_excel_data.py`
 - To reset app state, clear `localStorage` for the page or use browser dev tools.

@@ -111,6 +111,8 @@ def parse_collection_rows(rows: Iterable[Dict[str, Any]]) -> List[CollectionReco
                 price=row_text(row, "price"),
                 extra=row_text(row, "extra"),
                 note=row_text(row, "note"),
+                acquired_date=row_text(row, "acquiredDate", "acquired_date"),
+                source=row_text(row, "source"),
             )
         )
 
@@ -125,6 +127,8 @@ def parse_collection_rows(rows: Iterable[Dict[str, Any]]) -> List[CollectionReco
             price=row.price,
             extra=row.extra,
             note=row.note,
+            acquired_date=row.acquired_date,
+            source=row.source,
         )
         for idx, row in enumerate(parsed, start=1)
     ]
@@ -152,6 +156,12 @@ def parse_wishlist_rows(rows: Iterable[Dict[str, Any]]) -> List[WishlistRecord]:
                 note=row_text(row, "note"),
                 in_transit=row_bool(row, "inTransit", "in_transit"),
                 received=row_bool(row, "received"),
+                priority=row_text(row, "priority") or "Medium",
+                target_price=row_text(row, "targetPrice", "target_price"),
+                ordered_date=row_text(row, "orderedDate", "ordered_date"),
+                received_date=row_text(row, "receivedDate", "received_date"),
+                listing_url=row_text(row, "listingUrl", "listing_url"),
+                replacement=row_bool(row, "replacement"),
             )
         )
 
@@ -163,6 +173,12 @@ def parse_wishlist_rows(rows: Iterable[Dict[str, Any]]) -> List[WishlistRecord]:
             note=row.note,
             in_transit=row.in_transit,
             received=row.received,
+            priority=row.priority,
+            target_price=row.target_price,
+            ordered_date=row.ordered_date,
+            received_date=row.received_date,
+            listing_url=row.listing_url,
+            replacement=row.replacement,
         )
         for idx, row in enumerate(parsed, start=1)
     ]

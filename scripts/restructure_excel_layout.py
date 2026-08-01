@@ -93,7 +93,19 @@ def build_collection_workbook(records: List[CollectionRecord]) -> Workbook:
     wb = Workbook()
     ws = wb.active
     ws.title = "Collection"
-    headers = ["ID", "Platform", "Title", "Version", "CD", "Manual", "Price", "Extra", "Note"]
+    headers = [
+        "ID",
+        "Platform",
+        "Title",
+        "Version",
+        "CD",
+        "Manual",
+        "Price",
+        "Extra",
+        "Note",
+        "Acquired Date",
+        "Source",
+    ]
     ws.append(headers)
 
     for idx, row in enumerate(ordered_collection(records), start=1):
@@ -108,6 +120,8 @@ def build_collection_workbook(records: List[CollectionRecord]) -> Workbook:
                 row.price,
                 row.extra,
                 row.note,
+                row.acquired_date,
+                row.source,
             ]
         )
 
@@ -144,10 +158,13 @@ def build_wishlist_workbook(records: List[WishlistRecord]) -> Workbook:
         "Title",
         "Note",
         "Priority",
+        "Target Price",
         "In Transit",
         "Received",
         "Ordered Date",
         "Received Date",
+        "Listing URL",
+        "Replacement",
     ]
     ws.append(headers)
 
@@ -158,11 +175,14 @@ def build_wishlist_workbook(records: List[WishlistRecord]) -> Workbook:
                 row.platform,
                 row.title,
                 row.note,
-                "Medium",
+                row.priority,
+                row.target_price,
                 "Yes" if row.in_transit else "No",
-                "No",
-                "",
-                "",
+                "Yes" if row.received else "No",
+                row.ordered_date,
+                row.received_date,
+                row.listing_url,
+                "Yes" if row.replacement else "No",
             ]
         )
 
@@ -187,31 +207,32 @@ def add_wishlist_validations(ws) -> None:
 
     platform_validation.add(f"B2:B{ws.max_row}")
     priority_validation.add(f"E2:E{ws.max_row}")
-    yes_no_validation.add(f"F2:G{ws.max_row}")
+    yes_no_validation.add(f"G2:H{ws.max_row}")
+    yes_no_validation.add(f"L2:L{ws.max_row}")
 
 
 def add_wishlist_conditional_formatting(ws) -> None:
     if ws.max_row < 2:
         return
-    row_range = f"A2:I{ws.max_row}"
+    row_range = f"A2:L{ws.max_row}"
     ws.conditional_formatting.add(
         row_range,
-        FormulaRule(formula=['=$F2="Yes"'], stopIfTrue=False, fill=TRANSIT_FILL),
+        FormulaRule(formula=['=$G2="Yes"'], stopIfTrue=False, fill=TRANSIT_FILL),
     )
     ws.conditional_formatting.add(
         row_range,
-        FormulaRule(formula=['=$G2="Yes"'], stopIfTrue=False, fill=RECEIVED_FILL),
+        FormulaRule(formula=['=$H2="Yes"'], stopIfTrue=False, fill=RECEIVED_FILL),
     )
 
 
 def add_wishlist_summary_sheet(wb: Workbook) -> None:
     ws = wb.create_sheet("Summary")
     ws.append(["Metric", "Value"])
-    ws.append(["Pending wishlist items", '=COUNTIFS(Wishlist!G:G,"No")'])
-    ws.append(["In transit items", '=COUNTIFS(Wishlist!F:F,"Yes",Wishlist!G:G,"No")'])
-    ws.append(["Received (to move)", '=COUNTIFS(Wishlist!G:G,"Yes")'])
+    ws.append(["Pending wishlist items", '=COUNTIFS(Wishlist!H:H,"No")'])
+    ws.append(["In transit items", '=COUNTIFS(Wishlist!G:G,"Yes",Wishlist!H:H,"No")'])
+    ws.append(["Received (to move)", '=COUNTIFS(Wishlist!H:H,"Yes")'])
     for platform in PLATFORMS:
-        ws.append([f"{platform} pending", f'=COUNTIFS(Wishlist!B:B,"{platform}",Wishlist!G:G,"No")'])
+        ws.append([f"{platform} pending", f'=COUNTIFS(Wishlist!B:B,"{platform}",Wishlist!H:H,"No")'])
     style_sheet_header(ws, 2)
     autosize_columns(ws)
 

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Game Collection Manager</title>
-    <link rel="stylesheet" href="styles.css?v=20260308-1" />
+    <link rel="stylesheet" href="styles.css?v=20260801-1" />
   </head>
   <body>
     <div class="backdrop" aria-hidden="true"></div>
@@ -34,15 +34,16 @@
         <a id="export-state-link" class="sync-download-link" hidden>Download exported JSON manually</a>
       </section>
 
-      <nav class="tabs" aria-label="Views">
-        <button class="tab is-active" data-tab="collection" type="button">Collection</button>
-        <button class="tab" data-tab="wishlist" type="button">Wishlist</button>
+      <nav class="tabs" aria-label="Views" role="tablist">
+        <button class="tab is-active" id="collection-tab" data-tab="collection" type="button" role="tab" aria-controls="collection-panel" aria-selected="true">Collection</button>
+        <button class="tab" id="wishlist-tab" data-tab="wishlist" type="button" role="tab" aria-controls="wishlist-panel" aria-selected="false" tabindex="-1">Wishlist</button>
       </nav>
 
-      <section class="panel is-active" id="collection-panel">
+      <section class="panel is-active" id="collection-panel" role="tabpanel" aria-labelledby="collection-tab">
         <div class="section-head">
           <h2>Current Collection</h2>
           <div class="filters">
+            <label class="sr-only" for="collection-search">Search collection</label>
             <input
               id="collection-search"
               type="search"
@@ -78,11 +79,19 @@
           </label>
           <label>
             Price
-            <input name="price" />
+            <input name="price" inputmode="decimal" />
           </label>
           <label>
             Extra
             <input name="extra" />
+          </label>
+          <label>
+            Acquired date
+            <input name="acquiredDate" type="date" />
+          </label>
+          <label>
+            Source
+            <input name="source" />
           </label>
           <label class="full-width">
             Note
@@ -95,24 +104,37 @@
         <div id="collection-groups" class="stack"></div>
       </section>
 
-      <section class="panel" id="wishlist-panel">
+      <section class="panel" id="wishlist-panel" role="tabpanel" aria-labelledby="wishlist-tab" hidden>
         <div class="section-head">
-          <h2>Wishlist</h2>
+          <div>
+            <h2>Wishlist</h2>
+            <p class="result-summary" id="wishlist-result-summary"></p>
+          </div>
           <div class="filters">
+            <label class="sr-only" for="wishlist-search">Search wishlist</label>
             <input
               id="wishlist-search"
               type="search"
               placeholder="Search wishlist..."
               autocomplete="off"
             />
+            <label class="sr-only" for="wishlist-platform-filter">Filter wishlist by platform</label>
             <select id="wishlist-platform-filter">
               <option value="">All platforms</option>
+            </select>
+            <label class="sr-only" for="wishlist-status-filter">Filter wishlist by status</label>
+            <select id="wishlist-status-filter">
+              <option value="">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="transit">In transit</option>
+              <option value="replacement">Replacement copy</option>
             </select>
           </div>
         </div>
 
         <form id="wishlist-form" class="card form-grid" autocomplete="off">
-          <h3>Add To Wishlist</h3>
+          <h3 id="wishlist-form-title">Add To Wishlist</h3>
+          <input type="hidden" name="editId" />
           <label>
             Platform
             <select name="platform" required></select>
@@ -125,11 +147,36 @@
             Note
             <input name="note" />
           </label>
+          <label>
+            Priority
+            <select name="priority">
+              <option>Low</option>
+              <option selected>Medium</option>
+              <option>High</option>
+            </select>
+          </label>
+          <label>
+            Target price
+            <input name="targetPrice" inputmode="decimal" placeholder="e.g. 25.00" />
+          </label>
+          <label>
+            Ordered date
+            <input name="orderedDate" type="date" />
+          </label>
+          <label>
+            Listing URL
+            <input name="listingUrl" type="url" placeholder="https://..." />
+          </label>
           <label class="inline-check">
             <input name="inTransit" type="checkbox" />
             Mark as in transit
           </label>
-          <button type="submit">Add Wish</button>
+          <label class="inline-check">
+            <input name="replacement" type="checkbox" />
+            Replacement or upgrade copy
+          </label>
+          <button id="wishlist-submit-btn" type="submit">Add Wish</button>
+          <button id="wishlist-cancel-edit-btn" class="secondary" type="button" hidden>Cancel Edit</button>
         </form>
 
         <div class="card table-wrap">
@@ -139,9 +186,10 @@
                 <th>Platform</th>
                 <th>Title</th>
                 <th>Note</th>
+                <th>Priority</th>
+                <th>Target</th>
                 <th>In transit</th>
-                <th>Received</th>
-                <th>Action</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -149,9 +197,57 @@
         </div>
       </section>
 
-      <p class="status" id="status"></p>
+      <div class="status" id="status" role="status" aria-live="polite" aria-atomic="true">
+        <span id="status-message"></span>
+        <button id="status-undo-btn" class="secondary status-undo" type="button" hidden>Undo</button>
+      </div>
     </main>
 
-    <script src="app.js?v=20260308-1" type="module"></script>
+    <dialog id="receive-dialog" class="receive-dialog" aria-labelledby="receive-dialog-title">
+      <form id="receive-form" class="dialog-form" method="dialog">
+        <div>
+          <p class="eyebrow">Add to collection</p>
+          <h2 id="receive-dialog-title">Receive game</h2>
+          <p class="dialog-subtitle" id="receive-game-title"></p>
+        </div>
+        <input type="hidden" name="wishId" />
+        <div class="dialog-grid">
+          <label>
+            Version
+            <input name="version" />
+          </label>
+          <label>
+            Purchase price
+            <input name="price" inputmode="decimal" />
+          </label>
+          <label>
+            Disc condition
+            <input name="cdCondition" inputmode="decimal" placeholder="1–5" />
+          </label>
+          <label>
+            Manual condition
+            <input name="manualCondition" inputmode="decimal" placeholder="1–5" />
+          </label>
+          <label>
+            Acquired date
+            <input name="acquiredDate" type="date" />
+          </label>
+          <label>
+            Source
+            <input name="source" placeholder="Store or seller" />
+          </label>
+          <label class="full-width">
+            Note
+            <input name="note" />
+          </label>
+        </div>
+        <div class="dialog-actions">
+          <button id="receive-cancel-btn" class="secondary" type="button">Cancel</button>
+          <button type="submit">Move To Collection</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="app.js?v=20260801-1" type="module"></script>
   </body>
 </html>
