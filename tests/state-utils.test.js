@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { normalizePriority, normalizeRecordId, persistOrRestore } from "../state-utils.js";
+import {
+  getRevisionStatus,
+  normalizePriority,
+  normalizeRecordId,
+  persistOrRestore,
+  statesHaveSameContent,
+} from "../state-utils.js";
 
 
 test("record IDs accept only the expected prefix and numeric suffix", () => {
@@ -36,4 +42,29 @@ test("failed persistence selects the previous state", () => {
     data: previous,
     persisted: false,
   });
+});
+
+test("state comparison ignores generated IDs but detects content changes", () => {
+  const left = {
+    collection: [{ id: "c1", platform: "PS2", title: "Game" }],
+    wishlist: [{ id: "w1", platform: "PS4", title: "Wish", priority: "High" }],
+  };
+  const same = {
+    collection: [{ id: "c99", platform: "PS2", title: "Game" }],
+    wishlist: [{ id: "w42", platform: "PS4", title: "Wish", priority: "High" }],
+  };
+  const changed = {
+    collection: [{ id: "c1", platform: "PS2", title: "Different" }],
+    wishlist: left.wishlist,
+  };
+
+  assert.equal(statesHaveSameContent(left, same), true);
+  assert.equal(statesHaveSameContent(left, changed), false);
+});
+
+test("revision status detects true two-sided divergence", () => {
+  assert.equal(getRevisionStatus("old", "new", true), "same-content");
+  assert.equal(getRevisionStatus("same", "same", false), "repository-unchanged");
+  assert.equal(getRevisionStatus("old", "new", false), "conflict");
+  assert.equal(getRevisionStatus("", "new", false), "conflict");
 });

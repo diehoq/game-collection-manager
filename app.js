@@ -1,4 +1,10 @@
-import { normalizePriority, normalizeRecordId, persistOrRestore } from "./state-utils.js?v=20260801-2";
+import {
+  getRevisionStatus,
+  normalizePriority,
+  normalizeRecordId,
+  persistOrRestore,
+  statesHaveSameContent,
+} from "./state-utils.js?v=20260801-3";
 
 
 const STORAGE_KEY = "gameCollectionManager.v2";
@@ -62,12 +68,19 @@ const elements = {
   deleteMoveCheckbox: document.getElementById("delete-move-checkbox"),
   deleteCancelButton: document.getElementById("delete-cancel-btn"),
   deleteConfirmButton: document.getElementById("delete-confirm-btn"),
+  revisionDialog: document.getElementById("revision-dialog"),
+  revisionBrowserCounts: document.getElementById("revision-browser-counts"),
+  revisionRepositoryCounts: document.getElementById("revision-repository-counts"),
+  revisionExportButton: document.getElementById("revision-export-btn"),
+  revisionKeepButton: document.getElementById("revision-keep-btn"),
+  revisionLoadButton: document.getElementById("revision-load-btn"),
 };
 
 let statusTimer = null;
 let currentExportBlobUrl = null;
 let undoAction = null;
 let pendingDeletion = null;
+let activeBaseRevision = "";
 
 function normalize(input) {
   return (input || "").toString().trim().toLowerCase();
@@ -160,6 +173,7 @@ function isDuplicateCollection(platform, title) {
 function statePayload() {
   return {
     schemaVersion: SCHEMA_VERSION,
+    baseRevision: activeBaseRevision,
     updatedAt: new Date().toISOString(),
     collection: state.collection,
     wishlist: state.wishlist,
@@ -187,6 +201,7 @@ function saveImportBackup() {
 
 function cloneCurrentData() {
   return JSON.parse(JSON.stringify({
+    baseRevision: activeBaseRevision,
     collection: state.collection,
     wishlist: state.wishlist,
   }));
@@ -199,6 +214,7 @@ function persistMutationOrRollback(previous) {
 
   state.collection = result.data.collection;
   state.wishlist = result.data.wishlist;
+  activeBaseRevision = result.data.baseRevision || "";
   renderAll();
   flashStatus("The change could not be saved and was rolled back. Check browser storage, then try again.", true, null, true);
   return false;
@@ -399,6 +415,7 @@ function exportStateSnapshot() {
     });
     const payload = {
       schemaVersion: SCHEMA_VERSION,
+      baseRevision: activeBaseRevision,
       exportedAt: new Date().toISOString(),
       collection: normalizedState.collection,
       wishlist: normalizedState.wishlist,
@@ -426,9 +443,11 @@ async function importStateSnapshot(file) {
     return;
   }
   const previous = cloneCurrentData();
+  const importedBaseRevision = String(parsed.baseRevision || activeBaseRevision || "");
   saveImportBackup();
   state.collection = normalizedState.collection;
   state.wishlist = normalizedState.wishlist;
+  activeBaseRevision = importedBaseRevision;
   if (!persistMutationOrRollback(previous)) return;
   resetCollectionForm();
   resetWishlistForm();
@@ -460,6 +479,7 @@ function restoreData(previous, message) {
   const current = cloneCurrentData();
   state.collection = previous.collection;
   state.wishlist = previous.wishlist;
+  activeBaseRevision = previous.baseRevision || "";
   if (!persistMutationOrRollback(current)) return;
   resetCollectionForm();
   resetWishlistForm();
@@ -1239,7 +1259,7 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-async function loadInitialState() {
+function loadCachedState() {
   const cacheCandidates = [
     { key: STORAGE_KEY, label: "current browser state" },
     { key: BACKUP_STORAGE_KEY, label: "local backup" },
@@ -1252,34 +1272,133 @@ async function loadInitialState() {
     try {
       const parsed = JSON.parse(cached);
       const normalizedState = normalizeStatePayload(parsed, { strict: true });
-      state.collection = normalizedState.collection;
-      state.wishlist = normalizedState.wishlist;
-      const saved = saveState();
-      if (!saved) {
-        setTimeout(() => flashStatus("Data loaded, but browser storage is unavailable. Export a snapshot before leaving this page.", true, null, true), 0);
-      } else if (candidate.key !== STORAGE_KEY) {
-        setTimeout(() => flashStatus(`Recovered ${candidate.label}.`), 0);
-      }
-      return;
+      return {
+        data: normalizedState,
+        baseRevision: String(parsed.baseRevision || ""),
+        key: candidate.key,
+        label: candidate.label,
+      };
     } catch (error) {
       console.warn(`Could not load ${candidate.label}`, error);
     }
   }
+  return null;
+}
 
+async function loadRepositoryState() {
   try {
-    const response = await fetch("data/seed.json");
+    const response = await fetch("data/seed.json", { cache: "no-store" });
     if (!response.ok) throw new Error(`Failed to load seed (${response.status})`);
     const seed = await response.json();
-    const normalizedState = normalizeStatePayload(seed, { strict: true });
-    state.collection = normalizedState.collection;
-    state.wishlist = normalizedState.wishlist;
-    if (!saveState()) {
-      setTimeout(() => flashStatus("Seed data loaded, but browser storage is unavailable. Export a snapshot before leaving this page.", true, null, true), 0);
-    }
+    return {
+      data: normalizeStatePayload(seed, { strict: true }),
+      revision: String(seed.revision || seed.generatedAt || ""),
+    };
   } catch (error) {
-    console.error(error);
-    flashStatus("Could not load seed data. Run a local web server and refresh.", true);
+    console.warn("Could not check repository seed", error);
+    return null;
   }
+}
+
+function requestRevisionChoice(browserData, repositoryData) {
+  elements.revisionBrowserCounts.textContent = `${browserData.collection.length} collection · ${browserData.wishlist.length} wishlist`;
+  elements.revisionRepositoryCounts.textContent = `${repositoryData.collection.length} collection · ${repositoryData.wishlist.length} wishlist`;
+
+  return new Promise((resolve) => {
+    const preventCancel = (event) => event.preventDefault();
+    const finish = (choice) => {
+      elements.revisionDialog.removeEventListener("cancel", preventCancel);
+      elements.revisionExportButton.onclick = null;
+      elements.revisionKeepButton.onclick = null;
+      elements.revisionLoadButton.onclick = null;
+      elements.revisionDialog.close();
+      resolve(choice);
+    };
+
+    elements.revisionDialog.addEventListener("cancel", preventCancel);
+    elements.revisionExportButton.onclick = () => exportStateSnapshot();
+    elements.revisionKeepButton.onclick = () => finish("browser");
+    elements.revisionLoadButton.onclick = () => finish("repository");
+    elements.revisionDialog.showModal();
+  });
+}
+
+function warnStorageUnavailable(message) {
+  setTimeout(() => flashStatus(message, true, null, true), 0);
+}
+
+async function loadInitialState() {
+  const cached = loadCachedState();
+  const repository = await loadRepositoryState();
+
+  if (!cached && !repository) {
+    flashStatus("Could not load browser or repository data. Run a local web server and refresh.", true, null, true);
+    return;
+  }
+
+  if (!cached && repository) {
+    state.collection = repository.data.collection;
+    state.wishlist = repository.data.wishlist;
+    activeBaseRevision = repository.revision;
+    if (!saveState()) {
+      warnStorageUnavailable("Seed data loaded, but browser storage is unavailable. Export a snapshot before leaving this page.");
+    }
+    return;
+  }
+
+  state.collection = cached.data.collection;
+  state.wishlist = cached.data.wishlist;
+  activeBaseRevision = cached.baseRevision;
+
+  if (!repository) {
+    if (!saveState()) {
+      warnStorageUnavailable("Browser data loaded, but storage could not be refreshed. Export a snapshot before leaving this page.");
+    } else {
+      setTimeout(() => flashStatus("Repository check unavailable; using browser data."), 0);
+    }
+    return;
+  }
+
+  const revisionStatus = getRevisionStatus(
+    cached.baseRevision,
+    repository.revision,
+    statesHaveSameContent(cached.data, repository.data)
+  );
+  if (revisionStatus !== "conflict") {
+    activeBaseRevision = repository.revision;
+    const saved = saveState();
+    if (!saved) {
+      warnStorageUnavailable("Data loaded, but browser storage is unavailable. Export a snapshot before leaving this page.");
+    } else if (cached.key !== STORAGE_KEY) {
+      setTimeout(() => flashStatus(`Recovered ${cached.label}.`), 0);
+    }
+    return;
+  }
+
+  const choice = await requestRevisionChoice(cached.data, repository.data);
+  if (choice === "browser") {
+    activeBaseRevision = repository.revision;
+    if (!saveState()) {
+      warnStorageUnavailable("Browser data was kept, but the sync decision could not be saved. Export a snapshot before leaving.");
+    } else {
+      setTimeout(() => flashStatus("Browser data kept. Export it when you are ready to update the repository."), 0);
+    }
+    return;
+  }
+
+  saveImportBackup();
+  const previousRevision = activeBaseRevision;
+  state.collection = repository.data.collection;
+  state.wishlist = repository.data.wishlist;
+  activeBaseRevision = repository.revision;
+  if (!saveState()) {
+    state.collection = cached.data.collection;
+    state.wishlist = cached.data.wishlist;
+    activeBaseRevision = previousRevision;
+    warnStorageUnavailable("Repository data could not be saved locally, so browser data was restored.");
+    return;
+  }
+  setTimeout(() => flashStatus("Repository data loaded. The previous browser state is available as a local backup."), 0);
 }
 
 await loadInitialState();

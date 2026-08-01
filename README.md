@@ -84,6 +84,8 @@ Then in the app:
 
 Imports are validated and previewed before they replace browser data. The previous state is retained in `gameCollectionManager.backup.v2` for recovery.
 
+On startup, the app compares the browser's base revision with the current repository seed. If both versions changed, it offers to export the browser state, keep it, or load the repository version. Loading the repository version creates a local backup first.
+
 ## Data fields
 
 - Collection: platform, title, version, disc/manual condition, price, extra, note, acquired date, and source
@@ -103,6 +105,7 @@ node --check app.js
 ## Notes
 
 - App data is persisted in browser `localStorage` and automatically migrates from the legacy `gameCollectionManager.v1` key.
+- Seed revisions are content-based, so regenerating an unchanged seed does not create a false conflict.
 - If you update Excel files and want fresh seed data, re-run:
   - `python scripts/import_excel_data.py`
 - To reset app state, clear `localStorage` for the page or use browser dev tools.

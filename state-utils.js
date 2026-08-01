@@ -24,3 +24,24 @@ export function persistOrRestore(previous, next, persist) {
   }
   return { data: previous, persisted: false };
 }
+
+function withoutIds(rows) {
+  return rows.map(({ id: _id, ...row }) => row);
+}
+
+export function statesHaveSameContent(left, right) {
+  if (!left || !right) return false;
+  return JSON.stringify({
+    collection: withoutIds(left.collection || []),
+    wishlist: withoutIds(left.wishlist || []),
+  }) === JSON.stringify({
+    collection: withoutIds(right.collection || []),
+    wishlist: withoutIds(right.wishlist || []),
+  });
+}
+
+export function getRevisionStatus(browserRevision, repositoryRevision, sameContent) {
+  if (sameContent) return "same-content";
+  if (browserRevision && browserRevision === repositoryRevision) return "repository-unchanged";
+  return "conflict";
+}

@@ -668,6 +668,32 @@ button:not(.tab):not(.platform-tab).danger {
   gap: 0.55rem;
 }
 
+.revision-comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.revision-comparison article {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(11, 20, 38, 0.72);
+}
+
+.revision-comparison span {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.revision-actions {
+  flex-wrap: wrap;
+}
+
 .empty {
   color: var(--ink-soft);
   font-size: 0.92rem;
@@ -744,6 +770,14 @@ button:focus-visible {
 
   .dialog-grid {
     grid-template-columns: 1fr;
+  }
+
+  .revision-comparison {
+    grid-template-columns: 1fr;
+  }
+
+  .revision-actions button {
+    width: 100%;
   }
 
   .dialog-grid .full-width {

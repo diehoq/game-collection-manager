@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
@@ -306,7 +307,20 @@ def to_json_payload(
         for row in sorted_records(wishlist_records)
     ]
 
+    revision_content = {
+        "collection": [{key: value for key, value in row.items() if key != "id"} for row in collection_json],
+        "wishlist": [{key: value for key, value in row.items() if key != "id"} for row in wishlist_json],
+    }
+    canonical = json.dumps(
+        revision_content,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+
     return {
+        "schemaVersion": 2,
+        "revision": f"sha256:{hashlib.sha256(canonical).hexdigest()}",
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "collection": collection_json,
         "wishlist": wishlist_json,

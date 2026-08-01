@@ -14,6 +14,7 @@ from import_excel_data import (  # noqa: E402
     WishlistRecord,
     parse_collection_sheet,
     parse_wishlist_sheet,
+    to_json_payload,
     transfer_received_items,
 )
 from restructure_excel_layout import (  # noqa: E402
@@ -24,6 +25,15 @@ from sync_state_to_excel import parse_collection_rows, parse_wishlist_rows  # no
 
 
 class DataSyncTests(unittest.TestCase):
+    def test_seed_revision_is_content_based_and_deterministic(self) -> None:
+        collection = parse_collection_rows([{"platform": "PS2", "title": "Revision Game"}])
+        first = to_json_payload(collection, [])
+        second = to_json_payload(collection, [])
+
+        self.assertEqual(first["schemaVersion"], 2)
+        self.assertEqual(first["revision"], second["revision"])
+        self.assertTrue(first["revision"].startswith("sha256:"))
+
     def test_json_fields_survive_excel_round_trip(self) -> None:
         collection = [
             CollectionRecord(
