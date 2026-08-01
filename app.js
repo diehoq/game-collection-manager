@@ -1,4 +1,4 @@
-import { normalizePriority, normalizeRecordId } from "./state-utils.js";
+import { normalizePriority, normalizeRecordId, persistOrRestore } from "./state-utils.js?v=20260801-2";
 
 
 const STORAGE_KEY = "gameCollectionManager.v2";
@@ -173,7 +173,6 @@ function saveState() {
     return true;
   } catch (error) {
     console.error(error);
-    flashStatus("Changes are in memory, but browser storage could not be updated. Export a snapshot now.", true);
     return false;
   }
 }
@@ -191,6 +190,18 @@ function cloneCurrentData() {
     collection: state.collection,
     wishlist: state.wishlist,
   }));
+}
+
+function persistMutationOrRollback(previous) {
+  const next = cloneCurrentData();
+  const result = persistOrRestore(previous, next, () => saveState());
+  if (result.persisted) return true;
+
+  state.collection = result.data.collection;
+  state.wishlist = result.data.wishlist;
+  renderAll();
+  flashStatus("The change could not be saved and was rolled back. Check browser storage, then try again.", true, null, true);
+  return false;
 }
 
 function toBool(value) {
@@ -418,10 +429,9 @@ async function importStateSnapshot(file) {
   saveImportBackup();
   state.collection = normalizedState.collection;
   state.wishlist = normalizedState.wishlist;
-  state.editingCollectionId = "";
-  state.editingWishlistId = "";
-  elements.collectionForm.elements.editId.value = "";
-  saveState();
+  if (!persistMutationOrRollback(previous)) return;
+  resetCollectionForm();
+  resetWishlistForm();
   renderAll();
   flashStatus(
     `Imported ${state.collection.length} collection and ${state.wishlist.length} wishlist games.`,
@@ -430,13 +440,14 @@ async function importStateSnapshot(file) {
   );
 }
 
-function flashStatus(message, isError = false, onUndo = null) {
+function flashStatus(message, isError = false, onUndo = null, persistent = false) {
   clearTimeout(statusTimer);
   undoAction = onUndo;
   elements.statusMessage.textContent = message;
   elements.status.style.color = isError ? "#ff8aa3" : "#65f3a2";
   elements.status.classList.add("is-visible");
   elements.statusUndoButton.hidden = !onUndo;
+  if (persistent) return;
   statusTimer = setTimeout(() => {
     elements.statusMessage.textContent = "";
     elements.statusUndoButton.hidden = true;
@@ -446,11 +457,12 @@ function flashStatus(message, isError = false, onUndo = null) {
 }
 
 function restoreData(previous, message) {
+  const current = cloneCurrentData();
   state.collection = previous.collection;
   state.wishlist = previous.wishlist;
+  if (!persistMutationOrRollback(current)) return;
   resetCollectionForm();
   resetWishlistForm();
-  saveState();
   renderAll();
   flashStatus(message);
 }
@@ -760,6 +772,7 @@ function startCollectionEdit(id) {
 function removeCollectionItem(id, moveToWishlist = false) {
   const game = state.collection.find((item) => item.id === id);
   if (!game) return;
+  const previous = cloneCurrentData();
 
   state.collection = state.collection.filter((item) => item.id !== id);
 
@@ -789,19 +802,18 @@ function removeCollectionItem(id, moveToWishlist = false) {
     }
   }
 
-  if (state.editingCollectionId === id) {
-    resetCollectionForm();
-  }
-  saveState();
+  if (!persistMutationOrRollback(previous)) return;
+  if (state.editingCollectionId === id) resetCollectionForm();
   renderAll();
   flashStatus(moveToWishlist ? "Game moved back to the wishlist." : "Game removed from collection.");
 }
 
 function removeWishlistItem(id) {
+  const previous = cloneCurrentData();
   const before = state.wishlist.length;
   state.wishlist = state.wishlist.filter((item) => item.id !== id);
   if (state.wishlist.length !== before) {
-    saveState();
+    if (!persistMutationOrRollback(previous)) return;
     renderAll();
     flashStatus("Game removed from wishlist.");
   }
@@ -827,8 +839,9 @@ function openDeleteDialog(type, id) {
 function setWishlistTransit(id, value) {
   const target = state.wishlist.find((item) => item.id === id);
   if (!target) return;
+  const previous = cloneCurrentData();
   target.inTransit = Boolean(value);
-  saveState();
+  if (!persistMutationOrRollback(previous)) return;
   renderAll();
 }
 
@@ -878,7 +891,7 @@ function receiveWishlistItem(id, details) {
     existing.acquiredDate = details.acquiredDate || existing.acquiredDate;
     existing.source = details.source || existing.source;
   }
-  saveState();
+  if (!persistMutationOrRollback(previous)) return;
   renderAll();
   flashStatus(
     existing
@@ -1110,6 +1123,7 @@ function bindEvents() {
         flashStatus("Could not find the selected game to edit.", true);
         return;
       }
+      const previous = cloneCurrentData();
       target.platform = payload.platform;
       target.title = payload.title;
       target.version = payload.version;
@@ -1120,7 +1134,7 @@ function bindEvents() {
       target.note = payload.note;
       target.acquiredDate = payload.acquiredDate;
       target.source = payload.source;
-      saveState();
+      if (!persistMutationOrRollback(previous)) return;
       renderAll();
       resetCollectionForm();
       flashStatus(`${payload.title} updated.`);
@@ -1135,8 +1149,9 @@ function bindEvents() {
       return;
     }
 
+    const previous = cloneCurrentData();
     state.collection.push(payload);
-    saveState();
+    if (!persistMutationOrRollback(previous)) return;
     renderAll();
     resetCollectionForm();
     flashStatus(`${payload.title} added to collection.`);
@@ -1192,16 +1207,18 @@ function bindEvents() {
         flashStatus("Could not find the selected wishlist game.", true);
         return;
       }
+      const previous = cloneCurrentData();
       Object.assign(target, payload);
-      saveState();
+      if (!persistMutationOrRollback(previous)) return;
       renderAll();
       resetWishlistForm();
       flashStatus(`${payload.title} updated.`);
       return;
     }
 
+    const previous = cloneCurrentData();
     state.wishlist.push(payload);
-    saveState();
+    if (!persistMutationOrRollback(previous)) return;
     resetWishlistForm();
     renderAll();
     flashStatus(`${payload.title} added to wishlist.`);
@@ -1237,8 +1254,10 @@ async function loadInitialState() {
       const normalizedState = normalizeStatePayload(parsed, { strict: true });
       state.collection = normalizedState.collection;
       state.wishlist = normalizedState.wishlist;
-      saveState();
-      if (candidate.key !== STORAGE_KEY) {
+      const saved = saveState();
+      if (!saved) {
+        setTimeout(() => flashStatus("Data loaded, but browser storage is unavailable. Export a snapshot before leaving this page.", true, null, true), 0);
+      } else if (candidate.key !== STORAGE_KEY) {
         setTimeout(() => flashStatus(`Recovered ${candidate.label}.`), 0);
       }
       return;
@@ -1254,7 +1273,9 @@ async function loadInitialState() {
     const normalizedState = normalizeStatePayload(seed, { strict: true });
     state.collection = normalizedState.collection;
     state.wishlist = normalizedState.wishlist;
-    saveState();
+    if (!saveState()) {
+      setTimeout(() => flashStatus("Seed data loaded, but browser storage is unavailable. Export a snapshot before leaving this page.", true, null, true), 0);
+    }
   } catch (error) {
     console.error(error);
     flashStatus("Could not load seed data. Run a local web server and refresh.", true);

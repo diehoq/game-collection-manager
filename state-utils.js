@@ -15,3 +15,12 @@ export function normalizeRecordId(value, prefix) {
   const pattern = prefix === "c" ? /^c\d{1,12}$/ : /^w\d{1,12}$/;
   return pattern.test(id) && Number(id.slice(1)) > 0 ? id : "";
 }
+
+export function persistOrRestore(previous, next, persist) {
+  try {
+    if (persist(next)) return { data: next, persisted: true };
+  } catch {
+    // The caller owns user-facing error reporting; state still rolls back here.
+  }
+  return { data: previous, persisted: false };
+}
