@@ -1,3 +1,6 @@
+import { normalizePriority, normalizeRecordId } from "./state-utils.js";
+
+
 const STORAGE_KEY = "gameCollectionManager.v2";
 const LEGACY_STORAGE_KEY = "gameCollectionManager.v1";
 const BACKUP_STORAGE_KEY = "gameCollectionManager.backup.v2";
@@ -198,7 +201,7 @@ function toBool(value) {
 
 function normalizeCollectionRow(row) {
   return {
-    id: String(row?.id ?? "").trim(),
+    id: normalizeRecordId(row?.id, "c"),
     platform: String(row?.platform ?? "").trim(),
     title: String(row?.title ?? "").trim(),
     version: String(row?.version ?? "").trim(),
@@ -214,13 +217,13 @@ function normalizeCollectionRow(row) {
 
 function normalizeWishlistRow(row) {
   return {
-    id: String(row?.id ?? "").trim(),
+    id: normalizeRecordId(row?.id, "w"),
     platform: String(row?.platform ?? "").trim(),
     title: String(row?.title ?? "").trim(),
     note: String(row?.note ?? "").trim(),
     inTransit: toBool(row?.inTransit ?? row?.in_transit),
     received: toBool(row?.received),
-    priority: String(row?.priority ?? "Medium").trim() || "Medium",
+    priority: normalizePriority(row?.priority),
     targetPrice: String(row?.targetPrice ?? row?.target_price ?? "").trim(),
     orderedDate: String(row?.orderedDate ?? row?.ordered_date ?? "").trim(),
     receivedDate: String(row?.receivedDate ?? row?.received_date ?? "").trim(),
@@ -628,8 +631,8 @@ function renderCollection() {
         <td data-label="Note" title="${escapeHtml(game.note || "")}">${escapeHtml(game.note || "")}</td>
         <td data-label="Actions">
           <div class="row-actions">
-            <button class="secondary" data-edit-collection="${game.id}" type="button" aria-label="Edit ${escapeHtml(game.title)}">Edit</button>
-            <button class="danger" data-remove-collection="${game.id}" type="button" aria-label="Remove ${escapeHtml(game.title)}">Remove</button>
+            <button class="secondary" data-edit-collection="${escapeHtml(game.id)}" type="button" aria-label="Edit ${escapeHtml(game.title)}">Edit</button>
+            <button class="danger" data-remove-collection="${escapeHtml(game.id)}" type="button" aria-label="Remove ${escapeHtml(game.title)}">Remove</button>
           </div>
         </td>
       `;
@@ -690,14 +693,14 @@ function renderWishlist() {
       <td data-label="Platform">${renderPlatformBadge(item.platform, "sm")}</td>
       <td data-label="Title">${escapeHtml(item.title)}${listingUrl ? ` <a class="external-link" href="${escapeHtml(listingUrl)}" target="_blank" rel="noopener noreferrer" aria-label="Open listing for ${escapeHtml(item.title)}">↗</a>` : ""}</td>
       <td data-label="Note">${note}</td>
-      <td data-label="Priority"><span class="tag priority-${normalize(item.priority)}">${escapeHtml(item.priority)}</span></td>
+      <td data-label="Priority"><span class="tag priority-${normalizePriority(item.priority).toLowerCase()}">${escapeHtml(normalizePriority(item.priority))}</span></td>
       <td data-label="Target">${escapeHtml(item.targetPrice || "")}</td>
-      <td data-label="In transit"><input class="checkbox" data-in-transit="${item.id}" type="checkbox" ${item.inTransit ? "checked" : ""} aria-label="Mark ${escapeHtml(item.title)} as in transit" /></td>
+      <td data-label="In transit"><input class="checkbox" data-in-transit="${escapeHtml(item.id)}" type="checkbox" ${item.inTransit ? "checked" : ""} aria-label="Mark ${escapeHtml(item.title)} as in transit" /></td>
       <td data-label="Actions">
         <div class="row-actions">
-          <button class="secondary" data-edit-wishlist="${item.id}" type="button" aria-label="Edit ${escapeHtml(item.title)}">Edit</button>
-          <button data-receive-wishlist="${item.id}" type="button" aria-label="Receive ${escapeHtml(item.title)}">Receive</button>
-          <button class="danger" data-remove-wishlist="${item.id}" type="button" aria-label="Delete ${escapeHtml(item.title)}">Delete</button>
+          <button class="secondary" data-edit-wishlist="${escapeHtml(item.id)}" type="button" aria-label="Edit ${escapeHtml(item.title)}">Edit</button>
+          <button data-receive-wishlist="${escapeHtml(item.id)}" type="button" aria-label="Receive ${escapeHtml(item.title)}">Receive</button>
+          <button class="danger" data-remove-wishlist="${escapeHtml(item.id)}" type="button" aria-label="Delete ${escapeHtml(item.title)}">Delete</button>
         </div>
       </td>
     `;

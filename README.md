@@ -96,6 +96,7 @@ All fields round-trip between JSON and Excel.
 ```bash
 source .venv/bin/activate
 python -m unittest discover -s tests -v
+node --test tests/*.test.js
 node --check app.js
 ```
 
