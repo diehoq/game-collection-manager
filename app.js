@@ -96,10 +96,15 @@ const elements = {
   pricingProductLink: document.getElementById("pricing-product-link"),
   pricingClearButton: document.getElementById("pricing-clear-btn"),
   pricingCancelButton: document.getElementById("pricing-cancel-btn"),
+  exportPricingButton: document.getElementById("export-pricing-btn"),
+  importPricingButton: document.getElementById("import-pricing-btn"),
+  importPricingFile: document.getElementById("import-pricing-file"),
+  exportPricingLink: document.getElementById("export-pricing-link"),
 };
 
 let statusTimer = null;
 let currentExportBlobUrl = null;
+let currentPricingExportBlobUrl = null;
 let undoAction = null;
 let pendingDeletion = null;
 let activeBaseRevision = "";
@@ -450,20 +455,15 @@ function normalizeStatePayload(payload, { strict = false } = {}) {
   };
 }
 
-function triggerJsonDownload(filename, payload) {
-  if (currentExportBlobUrl) {
-    URL.revokeObjectURL(currentExportBlobUrl);
-    currentExportBlobUrl = null;
-  }
+function triggerJsonDownload(filename, payload, manualLink) {
   const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: "application/json" });
   const url = URL.createObjectURL(blob);
-  currentExportBlobUrl = url;
 
-  if (elements.exportStateLink) {
-    elements.exportStateLink.href = url;
-    elements.exportStateLink.download = filename;
-    elements.exportStateLink.hidden = false;
-    elements.exportStateLink.textContent = `Download manually: ${filename}`;
+  if (manualLink) {
+    manualLink.href = url;
+    manualLink.download = filename;
+    manualLink.hidden = false;
+    manualLink.textContent = `Download manually: ${filename}`;
   }
 
   const link = document.createElement("a");
@@ -474,6 +474,7 @@ function triggerJsonDownload(filename, payload) {
   document.body.append(link);
   link.click();
   link.remove();
+  return url;
 }
 
 function exportStateSnapshot() {
@@ -491,12 +492,50 @@ function exportStateSnapshot() {
     };
     const stamp = new Date().toISOString().replaceAll(":", "-");
     const filename = `game-collection-state-${stamp}.json`;
-    triggerJsonDownload(filename, payload);
+    if (currentExportBlobUrl) URL.revokeObjectURL(currentExportBlobUrl);
+    currentExportBlobUrl = triggerJsonDownload(filename, payload, elements.exportStateLink);
     flashStatus(`Export created. If download did not start, use the manual link.`);
   } catch (error) {
     console.error(error);
     flashStatus("Export failed. Check browser download permissions.", true);
   }
+}
+
+function exportPricingSnapshot() {
+  try {
+    const stamp = new Date().toISOString().replaceAll(":", "-");
+    const filename = `game-pricing-private-${stamp}.json`;
+    if (currentPricingExportBlobUrl) URL.revokeObjectURL(currentPricingExportBlobUrl);
+    currentPricingExportBlobUrl = triggerJsonDownload(
+      filename,
+      pricingPayload(pricingRecords),
+      elements.exportPricingLink
+    );
+    flashStatus("Private pricing backup created. Store it securely; it is not part of the app-state export.");
+  } catch (error) {
+    console.error(error);
+    flashStatus("Private pricing export failed. Check browser download permissions.", true);
+  }
+}
+
+async function importPricingSnapshot(file) {
+  const parsed = JSON.parse(await file.text());
+  const importedRecords = normalizePricingPayload(parsed, { strict: true });
+  const entries = Object.keys(importedRecords).length;
+  const priced = Object.values(importedRecords).filter(hasPricing).length;
+  const accepted = window.confirm(
+    `Import ${entries} private pricing references (${priced} with market values)?\n\nThis replaces the private pricing data currently stored in this browser. Collection and wishlist data will not change.`
+  );
+  if (!accepted) {
+    flashStatus("Private pricing import cancelled.");
+    return;
+  }
+
+  const previous = clonePricingRecords();
+  pricingRecords = importedRecords;
+  if (!savePricingRecords(previous)) return;
+  renderAll();
+  flashStatus(`Imported ${entries} private pricing references.`);
 }
 
 async function importStateSnapshot(file) {
@@ -1255,6 +1294,21 @@ function bindEvents() {
     } catch (error) {
       console.error(error);
       flashStatus(error instanceof Error ? error.message : "Invalid snapshot file.", true);
+    }
+  });
+  elements.exportPricingButton.addEventListener("click", exportPricingSnapshot);
+  elements.importPricingButton.addEventListener("click", () => {
+    elements.importPricingFile.value = "";
+    elements.importPricingFile.click();
+  });
+  elements.importPricingFile.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      await importPricingSnapshot(file);
+    } catch (error) {
+      console.error(error);
+      flashStatus(error instanceof Error ? error.message : "Invalid private pricing backup.", true);
     }
   });
   elements.collectionPlatformTabs.addEventListener("click", (event) => {

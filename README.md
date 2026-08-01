@@ -3,8 +3,9 @@
 Interactive app to manage:
 - Owned collection (`PS1`, `PS2`, `PS4`, `DS WII`)
 - Wishlist with priority, target price, order tracking, and replacement-copy support
+- Private, manually entered PriceCharting references and market-value estimates
 
-When a wishlist item is received, the app collects purchase details and moves it to the collection. Destructive actions can be undone for eight seconds.
+When a wishlist item is received, the app collects purchase details and moves it to the collection. Destructive actions require confirmation.
 
 ## Setup
 
@@ -86,12 +87,18 @@ Imports are validated and previewed before they replace browser data. The previo
 
 On startup, the app compares the browser's base revision with the current repository seed. If both versions changed, it offers to export the browser state, keep it, or load the repository version. Loading the repository version creates a local backup first.
 
+## Private pricing references
+
+Use the `Market` button beside a collection or wishlist game to open a matching PriceCharting search, save the exact product link, and manually enter Loose, CIB, New, box-only, or manual-only values.
+
+Pricing is intentionally isolated in the browser under `gameCollectionManager.priceCharting.v1`. It is not included in the normal app-state export, Excel files, or `data/seed.json`. Use `Export Private Prices` and `Import Private Prices` to move or back up these values separately. The app does not scrape PriceCharting or use its paid API.
+
 ## Data fields
 
 - Collection: platform, title, version, disc/manual condition, price, extra, note, acquired date, and source
 - Wishlist: platform, title, note, priority, target price, in-transit/received status, ordered/received dates, listing URL, and replacement-copy flag
 
-All fields round-trip between JSON and Excel.
+All collection and wishlist fields round-trip between JSON and Excel. Private pricing references do not.
 
 ## Tests
 
@@ -105,6 +112,7 @@ node --check app.js
 ## Notes
 
 - App data is persisted in browser `localStorage` and automatically migrates from the legacy `gameCollectionManager.v1` key.
+- Private pricing data uses a separate browser storage key and must be backed up separately.
 - Seed revisions are content-based, so regenerating an unchanged seed does not create a false conflict.
 - If you update Excel files and want fresh seed data, re-run:
   - `python scripts/import_excel_data.py`

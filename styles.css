@@ -134,6 +134,16 @@ h1 {
   gap: 1rem;
 }
 
+.pricing-overview-actions {
+  display: grid;
+  justify-items: end;
+  gap: 0.55rem;
+}
+
+.pricing-overview-actions button {
+  font-size: 0.72rem;
+}
+
 .pricecharting-attribution {
   color: var(--accent);
   font-size: 0.86rem;
@@ -841,6 +851,10 @@ button:focus-visible {
   .pricing-overview-head,
   .pricing-dialog-head {
     flex-direction: column;
+  }
+
+  .pricing-overview-actions {
+    justify-items: start;
   }
 
   .form-grid {

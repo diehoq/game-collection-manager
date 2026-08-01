@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Game Collection Manager</title>
-    <link rel="stylesheet" href="styles.css?v=20260801-8" />
+    <link rel="stylesheet" href="styles.css?v=20260801-9" />
   </head>
   <body>
     <div class="backdrop" aria-hidden="true"></div>
@@ -41,7 +41,15 @@
             <h2 id="pricing-overview-title">PriceCharting Values</h2>
             <p class="sync-subtitle">Manually reference current Loose, CIB, New, box, and manual values. These prices stay only in this browser.</p>
           </div>
-          <a class="pricecharting-attribution" href="https://www.pricecharting.com/category/video-games" target="_blank" rel="noopener noreferrer">Pricing source: PriceCharting ↗</a>
+          <div class="pricing-overview-actions">
+            <a class="pricecharting-attribution" href="https://www.pricecharting.com/category/video-games" target="_blank" rel="noopener noreferrer">Pricing source: PriceCharting ↗</a>
+            <div class="sync-actions">
+              <button id="export-pricing-btn" class="secondary" type="button">Export Private Prices</button>
+              <button id="import-pricing-btn" class="secondary" type="button">Import Private Prices</button>
+              <input id="import-pricing-file" type="file" accept="application/json" hidden />
+            </div>
+            <a id="export-pricing-link" class="sync-download-link" hidden>Download private pricing backup manually</a>
+          </div>
         </div>
         <div class="pricing-stats" id="pricing-stats"></div>
         <p class="pricing-method">Estimates prefer CIB, then Loose, New, Box-only, or Manual-only when available.</p>
@@ -364,6 +372,6 @@
       </form>
     </dialog>
 
-    <script src="app.js?v=20260801-8" type="module"></script>
+    <script src="app.js?v=20260801-9" type="module"></script>
   </body>
 </html>

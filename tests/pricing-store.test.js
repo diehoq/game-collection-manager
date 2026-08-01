@@ -10,6 +10,7 @@ import {
   normalizePriceChartingUrl,
   normalizePricingPayload,
   preferredPrice,
+  pricingPayload,
 } from "../pricing-store.js";
 
 
@@ -56,4 +57,15 @@ test("pricing backups normalize records and reject malformed roots", () => {
   assert.equal(hasPricing(records["ps2::game"]), true);
   assert.deepEqual(preferredPrice(records["ps2::game"]), { field: "cibCents", cents: 2500 });
   assert.throws(() => normalizePricingPayload({ records: [] }, { strict: true }));
+});
+
+test("private pricing backups stay separate from collection state", () => {
+  const records = {
+    "ps2::game": { currency: "EUR", cibCents: 2500 },
+  };
+  const backup = pricingPayload(records);
+
+  assert.deepEqual(backup.records, records);
+  assert.equal(Object.hasOwn(backup, "collection"), false);
+  assert.equal(Object.hasOwn(backup, "wishlist"), false);
 });
