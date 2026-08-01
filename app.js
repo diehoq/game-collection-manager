@@ -5,6 +5,19 @@ import {
   persistOrRestore,
   statesHaveSameContent,
 } from "./state-utils.js?v=20260801-3";
+import {
+  PRICING_STORAGE_KEY,
+  buildPriceChartingSearchUrl,
+  buildPricingKey,
+  centsToInput,
+  decimalToCents,
+  hasPricing,
+  normalizePriceChartingUrl,
+  normalizePricingPayload,
+  normalizePricingRecord,
+  preferredPrice,
+  pricingPayload,
+} from "./pricing-store.js?v=20260801-1";
 
 
 const STORAGE_KEY = "gameCollectionManager.v2";
@@ -74,6 +87,15 @@ const elements = {
   revisionExportButton: document.getElementById("revision-export-btn"),
   revisionKeepButton: document.getElementById("revision-keep-btn"),
   revisionLoadButton: document.getElementById("revision-load-btn"),
+  pricingStats: document.getElementById("pricing-stats"),
+  pricingDialog: document.getElementById("pricing-dialog"),
+  pricingForm: document.getElementById("pricing-form"),
+  pricingGameTitle: document.getElementById("pricing-game-title"),
+  pricingSearchLink: document.getElementById("pricing-search-link"),
+  pricingUpdated: document.getElementById("pricing-updated"),
+  pricingProductLink: document.getElementById("pricing-product-link"),
+  pricingClearButton: document.getElementById("pricing-clear-btn"),
+  pricingCancelButton: document.getElementById("pricing-cancel-btn"),
 };
 
 let statusTimer = null;
@@ -81,6 +103,12 @@ let currentExportBlobUrl = null;
 let undoAction = null;
 let pendingDeletion = null;
 let activeBaseRevision = "";
+let pricingRecords = {};
+let activePricingContext = null;
+
+function clonePricingRecords() {
+  return JSON.parse(JSON.stringify(pricingRecords));
+}
 
 function normalize(input) {
   return (input || "").toString().trim().toLowerCase();
@@ -189,6 +217,47 @@ function saveState() {
     console.error(error);
     return false;
   }
+}
+
+function loadPricingRecords() {
+  try {
+    const saved = localStorage.getItem(PRICING_STORAGE_KEY);
+    if (!saved) {
+      pricingRecords = {};
+      return;
+    }
+    pricingRecords = normalizePricingPayload(JSON.parse(saved), { strict: true });
+  } catch (error) {
+    console.warn("Could not load private pricing data", error);
+    pricingRecords = {};
+    setTimeout(() => {
+      flashStatus("Private pricing data could not be read. Import a private pricing backup to recover it.", true, null, true);
+    }, 0);
+  }
+}
+
+function savePricingRecords(previous) {
+  try {
+    localStorage.setItem(PRICING_STORAGE_KEY, JSON.stringify(pricingPayload(pricingRecords)));
+    return true;
+  } catch (error) {
+    console.error(error);
+    pricingRecords = previous;
+    flashStatus("Private pricing could not be saved and was rolled back. Check browser storage and try again.", true, null, true);
+    return false;
+  }
+}
+
+function rekeyPricingRecord(oldPlatform, oldTitle, newPlatform, newTitle) {
+  const oldKey = buildPricingKey(oldPlatform, oldTitle);
+  const newKey = buildPricingKey(newPlatform, newTitle);
+  if (oldKey === newKey || !pricingRecords[oldKey]) return;
+
+  const previous = clonePricingRecords();
+  const oldRecord = pricingRecords[oldKey];
+  delete pricingRecords[oldKey];
+  if (!pricingRecords[newKey]) pricingRecords[newKey] = oldRecord;
+  savePricingRecords(previous);
 }
 
 function saveImportBackup() {
@@ -593,6 +662,75 @@ function getCollectionFiltered() {
   });
 }
 
+function getPricingRecord(item) {
+  return pricingRecords[buildPricingKey(item.platform, item.title)] || null;
+}
+
+function formatMarketPrice(cents, currency) {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 2,
+    }).format(cents / 100);
+  } catch {
+    return `${currency} ${(cents / 100).toFixed(2)}`;
+  }
+}
+
+function pricingButtonLabel(record) {
+  const preferred = preferredPrice(record);
+  if (preferred) return formatMarketPrice(preferred.cents, record.currency);
+  return record?.priceChartingUrl ? "Reference saved" : "Add prices";
+}
+
+function priceFieldLabel(field) {
+  return {
+    cibCents: "CIB",
+    looseCents: "Loose",
+    newCents: "New",
+    boxOnlyCents: "Box only",
+    manualOnlyCents: "Manual only",
+  }[field] || "Market";
+}
+
+function summarizedPrices(items) {
+  const totals = new Map();
+  for (const item of items) {
+    const record = getPricingRecord(item);
+    const price = preferredPrice(record);
+    if (!price) continue;
+    totals.set(record.currency, (totals.get(record.currency) || 0) + price.cents);
+  }
+  if (!totals.size) return "No values yet";
+  return [...totals.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([currency, cents]) => formatMarketPrice(cents, currency))
+    .join(" · ");
+}
+
+function renderPricingSummary() {
+  const allItems = [...state.collection, ...state.wishlist];
+  const pricedCount = allItems.filter((item) => hasPricing(getPricingRecord(item))).length;
+  const summaries = [
+    { label: "Games priced", value: `${pricedCount} / ${allItems.length}` },
+    { label: "Collection estimate", value: summarizedPrices(state.collection) },
+    { label: "Wishlist estimate", value: summarizedPrices(state.wishlist) },
+  ];
+
+  elements.pricingStats.innerHTML = "";
+  for (const summary of summaries) {
+    const card = document.createElement("article");
+    card.className = "pricing-stat";
+    const value = document.createElement("strong");
+    value.textContent = summary.value;
+    const label = document.createElement("span");
+    label.textContent = summary.label;
+    card.append(value, label);
+    elements.pricingStats.append(card);
+  }
+}
+
 function renderCollection() {
   const filtered = getCollectionFiltered();
   const grouped = new Map();
@@ -626,14 +764,15 @@ function renderCollection() {
     table.className = "collection-table";
     table.innerHTML = `
       <colgroup>
-        <col style="width: 24%" />
+        <col style="width: 21%" />
+        <col style="width: 9%" />
+        <col style="width: 6%" />
+        <col style="width: 6%" />
+        <col style="width: 7%" />
         <col style="width: 10%" />
-        <col style="width: 7%" />
-        <col style="width: 7%" />
-        <col style="width: 8%" />
+        <col style="width: 16%" />
         <col style="width: 11%" />
-        <col style="width: 18%" />
-        <col style="width: 15%" />
+        <col style="width: 14%" />
       </colgroup>
       <thead>
         <tr>
@@ -644,6 +783,7 @@ function renderCollection() {
           <th>Price</th>
           <th>Extra</th>
           <th>Note</th>
+          <th>Market</th>
           <th>Action</th>
         </tr>
       </thead>
@@ -652,6 +792,8 @@ function renderCollection() {
 
     const tbody = table.querySelector("tbody");
     for (const game of items.sort((a, b) => a.title.localeCompare(b.title))) {
+      const pricing = getPricingRecord(game);
+      const selectedPrice = preferredPrice(pricing);
       const row = document.createElement("tr");
       row.innerHTML = `
         <td data-label="Title" title="${escapeHtml(game.title)}">${escapeHtml(game.title)}</td>
@@ -661,6 +803,9 @@ function renderCollection() {
         <td data-label="Price">${escapeHtml(game.price || "")}</td>
         <td data-label="Extra" title="${escapeHtml(game.extra || "")}">${escapeHtml(game.extra || "")}</td>
         <td data-label="Note" title="${escapeHtml(game.note || "")}">${escapeHtml(game.note || "")}</td>
+        <td data-label="Market">
+          <button class="secondary market-price-button" data-price-collection="${escapeHtml(game.id)}" type="button" title="${selectedPrice ? `${escapeHtml(priceFieldLabel(selectedPrice.field))} value` : "Add a private PriceCharting reference"}">${escapeHtml(pricingButtonLabel(pricing))}</button>
+        </td>
         <td data-label="Actions">
           <div class="row-actions">
             <button class="secondary" data-edit-collection="${escapeHtml(game.id)}" type="button" aria-label="Edit ${escapeHtml(game.title)}">Edit</button>
@@ -717,6 +862,8 @@ function renderWishlist() {
   elements.wishlistTableBody.innerHTML = "";
   for (const item of rows) {
     const row = document.createElement("tr");
+    const pricing = getPricingRecord(item);
+    const selectedPrice = preferredPrice(pricing);
     const listingUrl = safeExternalUrl(item.listingUrl);
     const note = item.replacement
       ? `${escapeHtml(item.note || "")}<span class="tag replacement-tag">Replacement</span>`
@@ -728,6 +875,9 @@ function renderWishlist() {
       <td data-label="Priority"><span class="tag priority-${normalizePriority(item.priority).toLowerCase()}">${escapeHtml(normalizePriority(item.priority))}</span></td>
       <td data-label="Target">${escapeHtml(item.targetPrice || "")}</td>
       <td data-label="In transit"><input class="checkbox" data-in-transit="${escapeHtml(item.id)}" type="checkbox" ${item.inTransit ? "checked" : ""} aria-label="Mark ${escapeHtml(item.title)} as in transit" /></td>
+      <td data-label="Market">
+        <button class="secondary market-price-button" data-price-wishlist="${escapeHtml(item.id)}" type="button" title="${selectedPrice ? `${escapeHtml(priceFieldLabel(selectedPrice.field))} value` : "Add a private PriceCharting reference"}">${escapeHtml(pricingButtonLabel(pricing))}</button>
+      </td>
       <td data-label="Actions">
         <div class="row-actions">
           <button class="secondary" data-edit-wishlist="${escapeHtml(item.id)}" type="button" aria-label="Edit ${escapeHtml(item.title)}">Edit</button>
@@ -741,7 +891,7 @@ function renderWishlist() {
 
   if (!rows.length) {
     const row = document.createElement("tr");
-    row.innerHTML = '<td colspan="7" class="empty">Wishlist is empty for this filter.</td>';
+    row.innerHTML = '<td colspan="8" class="empty">Wishlist is empty for this filter.</td>';
     elements.wishlistTableBody.append(row);
   }
 }
@@ -752,6 +902,7 @@ function renderAll() {
   renderHeroStats();
   renderCollection();
   renderWishlist();
+  renderPricingSummary();
   setCollectionFormMode();
   setWishlistFormMode();
 }
@@ -984,6 +1135,98 @@ function handleTabKeyboard(event, tabs, activate) {
   activate(tabs[next]);
 }
 
+function updatePricingProductLink(value) {
+  const url = normalizePriceChartingUrl(value);
+  elements.pricingProductLink.hidden = !url;
+  if (url) elements.pricingProductLink.href = url;
+  else elements.pricingProductLink.removeAttribute("href");
+}
+
+function openPricingDialog(type, id) {
+  const item = type === "collection"
+    ? state.collection.find((game) => game.id === id)
+    : state.wishlist.find((wish) => wish.id === id);
+  if (!item) return;
+
+  const key = buildPricingKey(item.platform, item.title);
+  const record = pricingRecords[key] || null;
+  const form = elements.pricingForm;
+  form.reset();
+  activePricingContext = { type, id, key, title: item.title };
+  elements.pricingGameTitle.textContent = `${item.title} · ${item.platform}`;
+  elements.pricingSearchLink.href = buildPriceChartingSearchUrl(item.platform, item.title);
+  form.elements.currency.value = record?.currency || "EUR";
+  form.elements.priceChartingUrl.value = record?.priceChartingUrl || "";
+  form.elements.loose.value = centsToInput(record?.looseCents);
+  form.elements.cib.value = centsToInput(record?.cibCents);
+  form.elements.newPrice.value = centsToInput(record?.newCents);
+  form.elements.boxOnly.value = centsToInput(record?.boxOnlyCents);
+  form.elements.manualOnly.value = centsToInput(record?.manualOnlyCents);
+  const updatedAt = record?.updatedAt ? new Date(record.updatedAt) : null;
+  elements.pricingUpdated.textContent = updatedAt && !Number.isNaN(updatedAt.getTime())
+    ? `Last updated ${updatedAt.toLocaleString()}`
+    : "Not priced yet";
+  elements.pricingClearButton.hidden = !record;
+  updatePricingProductLink(record?.priceChartingUrl || "");
+  elements.pricingDialog.showModal();
+}
+
+function readPricingInput(input, label) {
+  const raw = input.value.trim();
+  const cents = decimalToCents(raw);
+  if (raw && cents === null) {
+    throw new Error(`${label} must be a valid amount with no more than two decimal places.`);
+  }
+  return cents;
+}
+
+function savePricingForm() {
+  if (!activePricingContext) return;
+  const form = elements.pricingForm;
+  const rawUrl = form.elements.priceChartingUrl.value.trim();
+  const priceChartingUrl = normalizePriceChartingUrl(rawUrl);
+  if (rawUrl && !priceChartingUrl) {
+    throw new Error("Use an HTTPS URL from pricecharting.com.");
+  }
+
+  const record = normalizePricingRecord({
+    currency: form.elements.currency.value,
+    priceChartingUrl,
+    looseCents: readPricingInput(form.elements.loose, "Loose"),
+    cibCents: readPricingInput(form.elements.cib, "Complete (CIB)"),
+    newCents: readPricingInput(form.elements.newPrice, "New"),
+    boxOnlyCents: readPricingInput(form.elements.boxOnly, "Box-only"),
+    manualOnlyCents: readPricingInput(form.elements.manualOnly, "Manual-only"),
+    updatedAt: new Date().toISOString(),
+  });
+  if (!hasPricing(record) && !record.priceChartingUrl) {
+    throw new Error("Enter at least one market value or a PriceCharting product URL.");
+  }
+
+  const previous = clonePricingRecords();
+  pricingRecords[activePricingContext.key] = record;
+  if (!savePricingRecords(previous)) return;
+  const title = activePricingContext.title;
+  activePricingContext = null;
+  elements.pricingDialog.close();
+  renderAll();
+  flashStatus(`Private prices saved for ${title}.`);
+}
+
+function clearActivePricing() {
+  if (!activePricingContext || !pricingRecords[activePricingContext.key]) return;
+  const title = activePricingContext.title;
+  if (!window.confirm(`Clear all private prices and the PriceCharting link for “${title}”?`)) return;
+
+  const previous = clonePricingRecords();
+  delete pricingRecords[activePricingContext.key];
+  if (!savePricingRecords(previous)) return;
+  activePricingContext = null;
+  elements.pricingDialog.close();
+  renderAll();
+  flashStatus(`Private prices cleared for ${title}.`);
+}
+
 function bindEvents() {
   elements.tabs.forEach((tab) => {
     tab.addEventListener("click", () => switchTab(tab.dataset.tab));
@@ -1032,6 +1275,11 @@ function bindEvents() {
   });
 
   elements.collectionGroups.addEventListener("click", (event) => {
+    const priceButton = event.target.closest("[data-price-collection]");
+    if (priceButton) {
+      openPricingDialog("collection", priceButton.dataset.priceCollection);
+      return;
+    }
     const editButton = event.target.closest("[data-edit-collection]");
     if (editButton) {
       startCollectionEdit(editButton.dataset.editCollection);
@@ -1043,6 +1291,11 @@ function bindEvents() {
   });
 
   elements.wishlistTableBody.addEventListener("click", (event) => {
+    const priceButton = event.target.closest("[data-price-wishlist]");
+    if (priceButton) {
+      openPricingDialog("wishlist", priceButton.dataset.priceWishlist);
+      return;
+    }
     const editButton = event.target.closest("[data-edit-wishlist]");
     if (editButton) {
       startWishlistEdit(editButton.dataset.editWishlist);
@@ -1075,6 +1328,26 @@ function bindEvents() {
     if (!deletion) return;
     if (deletion.type === "collection") removeCollectionItem(deletion.id, moveToWishlist);
     else removeWishlistItem(deletion.id);
+  });
+
+  elements.pricingForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    try {
+      savePricingForm();
+    } catch (error) {
+      flashStatus(error instanceof Error ? error.message : "Could not save private prices.", true);
+    }
+  });
+  elements.pricingForm.elements.priceChartingUrl.addEventListener("input", (event) => {
+    updatePricingProductLink(event.currentTarget.value);
+  });
+  elements.pricingClearButton.addEventListener("click", clearActivePricing);
+  elements.pricingCancelButton.addEventListener("click", () => {
+    activePricingContext = null;
+    elements.pricingDialog.close();
+  });
+  elements.pricingDialog.addEventListener("cancel", () => {
+    activePricingContext = null;
   });
 
   elements.wishlistTableBody.addEventListener("change", (event) => {
@@ -1144,6 +1417,7 @@ function bindEvents() {
         return;
       }
       const previous = cloneCurrentData();
+      const previousIdentity = { platform: target.platform, title: target.title };
       target.platform = payload.platform;
       target.title = payload.title;
       target.version = payload.version;
@@ -1155,6 +1429,7 @@ function bindEvents() {
       target.acquiredDate = payload.acquiredDate;
       target.source = payload.source;
       if (!persistMutationOrRollback(previous)) return;
+      rekeyPricingRecord(previousIdentity.platform, previousIdentity.title, payload.platform, payload.title);
       renderAll();
       resetCollectionForm();
       flashStatus(`${payload.title} updated.`);
@@ -1228,8 +1503,10 @@ function bindEvents() {
         return;
       }
       const previous = cloneCurrentData();
+      const previousIdentity = { platform: target.platform, title: target.title };
       Object.assign(target, payload);
       if (!persistMutationOrRollback(previous)) return;
+      rekeyPricingRecord(previousIdentity.platform, previousIdentity.title, payload.platform, payload.title);
       renderAll();
       resetWishlistForm();
       flashStatus(`${payload.title} updated.`);
@@ -1402,5 +1679,6 @@ async function loadInitialState() {
 }
 
 await loadInitialState();
+loadPricingRecords();
 bindEvents();
 renderAll();

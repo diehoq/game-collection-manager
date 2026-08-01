@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Game Collection Manager</title>
-    <link rel="stylesheet" href="styles.css?v=20260801-7" />
+    <link rel="stylesheet" href="styles.css?v=20260801-8" />
   </head>
   <body>
     <div class="backdrop" aria-hidden="true"></div>
@@ -32,6 +32,19 @@
           <input id="import-state-file" type="file" accept="application/json" hidden />
         </div>
         <a id="export-state-link" class="sync-download-link" hidden>Download exported JSON manually</a>
+      </section>
+
+      <section class="card pricing-overview" aria-labelledby="pricing-overview-title">
+        <div class="pricing-overview-head">
+          <div>
+            <p class="eyebrow">Private reference data</p>
+            <h2 id="pricing-overview-title">PriceCharting Values</h2>
+            <p class="sync-subtitle">Manually reference current Loose, CIB, New, box, and manual values. These prices stay only in this browser.</p>
+          </div>
+          <a class="pricecharting-attribution" href="https://www.pricecharting.com/category/video-games" target="_blank" rel="noopener noreferrer">Pricing source: PriceCharting ↗</a>
+        </div>
+        <div class="pricing-stats" id="pricing-stats"></div>
+        <p class="pricing-method">Estimates prefer CIB, then Loose, New, Box-only, or Manual-only when available.</p>
       </section>
 
       <nav class="tabs" aria-label="Views" role="tablist">
@@ -189,6 +202,7 @@
                 <th>Priority</th>
                 <th>Target</th>
                 <th>In transit</th>
+                <th>Market</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -294,6 +308,62 @@
       </div>
     </dialog>
 
-    <script src="app.js?v=20260801-7" type="module"></script>
+    <dialog id="pricing-dialog" class="receive-dialog pricing-dialog" aria-labelledby="pricing-dialog-title">
+      <form id="pricing-form" class="dialog-form">
+        <div class="pricing-dialog-head">
+          <div>
+            <p class="eyebrow">Private market reference</p>
+            <h2 id="pricing-dialog-title">PriceCharting values</h2>
+            <p class="dialog-subtitle" id="pricing-game-title"></p>
+          </div>
+          <a id="pricing-search-link" class="pricecharting-attribution" target="_blank" rel="noopener noreferrer">Search PriceCharting ↗</a>
+        </div>
+        <p class="pricing-privacy-note">Enter values manually from the matching PriceCharting product page. Nothing entered here is included in public app exports, Excel, or repository data.</p>
+        <div class="dialog-grid pricing-grid">
+          <label class="full-width">
+            Exact PriceCharting product URL
+            <input name="priceChartingUrl" type="url" placeholder="https://www.pricecharting.com/game/..." />
+          </label>
+          <label>
+            Currency
+            <select name="currency">
+              <option value="EUR">EUR</option>
+              <option value="USD">USD</option>
+              <option value="GBP">GBP</option>
+            </select>
+          </label>
+          <span class="pricing-updated" id="pricing-updated"></span>
+          <label>
+            Loose
+            <input name="loose" inputmode="decimal" placeholder="0.00" />
+          </label>
+          <label>
+            Complete (CIB)
+            <input name="cib" inputmode="decimal" placeholder="0.00" />
+          </label>
+          <label>
+            New
+            <input name="newPrice" inputmode="decimal" placeholder="0.00" />
+          </label>
+          <label>
+            Box only
+            <input name="boxOnly" inputmode="decimal" placeholder="0.00" />
+          </label>
+          <label>
+            Manual only
+            <input name="manualOnly" inputmode="decimal" placeholder="0.00" />
+          </label>
+        </div>
+        <a id="pricing-product-link" class="external-link pricing-product-link" target="_blank" rel="noopener noreferrer" hidden>Open saved PriceCharting product page ↗</a>
+        <div class="dialog-actions pricing-dialog-actions">
+          <button id="pricing-clear-btn" class="danger" type="button">Clear Prices</button>
+          <span class="dialog-action-spacer"></span>
+          <button id="pricing-cancel-btn" class="secondary" type="button">Cancel</button>
+          <button type="submit">Save Private Prices</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="app.js?v=20260801-8" type="module"></script>
   </body>
 </html>

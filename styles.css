@@ -121,6 +121,67 @@ h1 {
   text-underline-offset: 2px;
 }
 
+.pricing-overview {
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.pricing-overview-head,
+.pricing-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.pricecharting-attribution {
+  color: var(--accent);
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.pricecharting-attribution:hover,
+.pricecharting-attribution:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.pricing-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin-top: 0.9rem;
+}
+
+.pricing-stat {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(8, 16, 30, 0.6);
+}
+
+.pricing-stat strong {
+  overflow-wrap: anywhere;
+  font-size: 1.08rem;
+}
+
+.pricing-stat span,
+.pricing-method,
+.pricing-privacy-note,
+.pricing-updated {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+}
+
+.pricing-method {
+  margin: 0.65rem 0 0;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -495,6 +556,17 @@ tbody tr:hover td {
   line-height: 1.1;
 }
 
+button:not(.tab):not(.platform-tab).market-price-button {
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.74rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .secondary {
   background: rgba(20, 34, 58, 0.95);
   color: #d4e6ff;
@@ -668,6 +740,40 @@ button:not(.tab):not(.platform-tab).danger {
   gap: 0.55rem;
 }
 
+.pricing-dialog {
+  width: min(760px, calc(100vw - 2rem));
+}
+
+.pricing-privacy-note {
+  margin: 0;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(11, 20, 38, 0.72);
+}
+
+.pricing-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+}
+
+.pricing-updated {
+  align-self: center;
+}
+
+.pricing-product-link {
+  width: fit-content;
+}
+
+.pricing-dialog-actions {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.dialog-action-spacer {
+  flex: 1;
+}
+
 .revision-comparison {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -732,6 +838,11 @@ button:focus-visible {
     justify-content: flex-start;
   }
 
+  .pricing-overview-head,
+  .pricing-dialog-head {
+    flex-direction: column;
+  }
+
   .form-grid {
     grid-template-columns: repeat(2, minmax(120px, 1fr));
   }
@@ -766,6 +877,16 @@ button:focus-visible {
 
   .stat-card {
     padding: 0.7rem;
+  }
+
+  .pricing-stats,
+  .pricing-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pricing-dialog-actions button,
+  .pricing-dialog-actions .dialog-action-spacer {
+    width: 100%;
   }
 
   .dialog-grid {
