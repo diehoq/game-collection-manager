@@ -753,7 +753,6 @@ function startCollectionEdit(id) {
 }
 
 function removeCollectionItem(id) {
-  const previous = cloneCurrentData();
   const before = state.collection.length;
   state.collection = state.collection.filter((item) => item.id !== id);
   if (state.collection.length !== before) {
@@ -762,18 +761,17 @@ function removeCollectionItem(id) {
     }
     saveState();
     renderAll();
-    flashStatus("Game removed from collection.", false, () => restoreData(previous, "Removal undone."));
+    flashStatus("Game removed from collection.");
   }
 }
 
 function removeWishlistItem(id) {
-  const previous = cloneCurrentData();
   const before = state.wishlist.length;
   state.wishlist = state.wishlist.filter((item) => item.id !== id);
   if (state.wishlist.length !== before) {
     saveState();
     renderAll();
-    flashStatus("Game removed from wishlist.", false, () => restoreData(previous, "Deletion undone."));
+    flashStatus("Game removed from wishlist.");
   }
 }
 
@@ -787,7 +785,7 @@ function openDeleteDialog(type, id) {
   const location = type === "collection" ? "collection" : "wishlist";
   const verb = type === "collection" ? "remove" : "delete";
   elements.deleteDialogTitle.textContent = type === "collection" ? "Remove game?" : "Delete wishlist game?";
-  elements.deleteDialogMessage.textContent = `Are you sure you want to ${verb} “${item.title}” from your ${location}? You can still undo this action for eight seconds.`;
+  elements.deleteDialogMessage.textContent = `Are you sure you want to ${verb} “${item.title}” from your ${location}? This action cannot be undone.`;
   elements.deleteConfirmButton.textContent = type === "collection" ? "Remove" : "Delete";
   elements.deleteDialog.showModal();
 }
